@@ -1,0 +1,102 @@
+rules_version = '2';
+// قواعد أمان منصة سبورة — تُلصق في Firestore > Rules ثم Publish
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn()   { return request.auth != null; }
+    function isAdmin()    { return signedIn() && request.auth.token.email == 'nora141453@gmail.com' && request.auth.token.email_verified == true; }
+    function hasProfile() { return signedIn() && exists(/databases/$(db)/documents/users/$(request.auth.uid)); }
+    function me()         { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function isDelegate() { return hasProfile() && me().role == 'delegate' && me().active != false; }
+    function isStaff()    { return isAdmin() || isDelegate(); }
+    function isStudent()  { return hasProfile() && me().role == 'student' && me().active != false; }
+    function quiz(id)     { return get(/databases/$(db)/documents/quizzes/$(id)).data; }
+
+    match /settings/app { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /settings/ai  { allow read, write: if isAdmin(); }
+
+    match /classes/{id}   { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /templates/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    match /users/{uid} {
+      allow read: if isAdmin() || isDelegate() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid && (
+          (request.resource.data.role == 'student' && request.resource.data.active == true
+             && !('delegateClasses' in request.resource.data)
+             && exists(/databases/$(db)/documents/classes/$(request.resource.data.classId)))
+       || (request.resource.data.role == 'pending_delegate' && !('delegateClasses' in request.resource.data))
+       || (request.resource.data.role == 'admin' && isAdmin()));
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone']));
+      allow delete: if isAdmin();
+    }
+
+    match /quizzes/{qid} {
+      allow read: if isAdmin()
+        || (isDelegate() && resource.data.createdBy == request.auth.uid)
+        || (isStudent() && me().classId in resource.data.pubClasses);
+      allow create: if isAdmin() || (isDelegate()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status in ['draft', 'pending']
+        && request.resource.data.pubClasses.size() == 0
+        && me().delegateClasses.hasAll(request.resource.data.classIds));
+      allow update: if isAdmin() || (isDelegate()
+        && resource.data.createdBy == request.auth.uid
+        && resource.data.status in ['draft', 'pending', 'rejected']
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status in ['draft', 'pending']
+        && request.resource.data.pubClasses.size() == 0
+        && me().delegateClasses.hasAll(request.resource.data.classIds));
+      allow delete: if isAdmin() || (isDelegate() && resource.data.createdBy == request.auth.uid && resource.data.status != 'published');
+    }
+
+    // مفاتيح الإجابات: لا يراها الطالب إلا بعد تسليمه
+    match /quizKeys/{qid} {
+      allow read: if isAdmin()
+        || (isDelegate() && quiz(qid).createdBy == request.auth.uid)
+        || (isStudent()
+            && exists(/databases/$(db)/documents/submissions/$(qid + '_' + request.auth.uid))
+            && (quiz(qid).resultsMode != 'manual' || quiz(qid).released == true));
+      allow write: if isAdmin() || (isDelegate()
+        && quiz(qid).createdBy == request.auth.uid
+        && quiz(qid).status in ['draft', 'pending', 'rejected']);
+    }
+
+    // التسليم مرة واحدة، ولا يُعدَّل بعده
+    match /submissions/{sid} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isStudent()
+        && request.resource.data.uid == request.auth.uid
+        && sid == request.resource.data.quizId + '_' + request.auth.uid
+        && request.resource.data.classId == me().classId
+        && quiz(request.resource.data.quizId).status == 'published'
+        && me().classId in quiz(request.resource.data.quizId).pubClasses
+        && request.resource.data.ownerId == quiz(request.resource.data.quizId).createdBy
+        && (quiz(request.resource.data.quizId).dueAt == 0 || request.time.toMillis() < quiz(request.resource.data.quizId).dueAt + 300000);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{sid} {
+      allow get: if isStaff() || (signedIn() && sid.matches('.*_' + request.auth.uid + '$'));
+      allow list: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /messages/{mid} {
+      allow read: if isAdmin()
+        || (signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid))
+        || (isStudent() && (resource.data.to == 'all' || resource.data.to == 'class:' + me().classId));
+      allow create: if signedIn() && request.resource.data.from == request.auth.uid && (
+          isAdmin()
+       || (isDelegate() && request.resource.data.kind == 'msg')
+       || (hasProfile() && request.resource.data.to == 'admin' && request.resource.data.kind == 'msg'));
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+        && request.resource.data.readBy.toSet().difference(resource.data.readBy.toSet()) == [request.auth.uid].toSet();
+      allow delete: if isAdmin() || (signedIn() && resource.data.from == request.auth.uid);
+    }
+  }
+}
