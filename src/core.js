@@ -329,7 +329,7 @@ function makeLocalAuth() {
     async signUp(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; if (pass.length < 6) throw { code: 'auth/weak-password' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); store.set('qz_demo_sess', { uid: acc[e].uid, email: e }); fire(); },
     async signOut() { store.del('qz_demo_sess'); fire(); },
     async sendVerify() { }, async reset() { }, async reload() { return cur(); },
-    async createUser(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); return acc[e].uid; }
+    async createUser(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) { if (acc[e].pass === pass) return acc[e].uid; throw { code: 'auth/email-already-in-use' }; } acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); return acc[e].uid; }
   };
 }
 async function makeFirebase() {
@@ -358,7 +358,12 @@ async function makeFirebase() {
     sendVerify: () => au.sendEmailVerification(auth.currentUser),
     reset: e => au.sendPasswordResetEmail(auth, e),
     async reload() { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return U(auth.currentUser); },
-    async createUser(email, pass) { creator ||= ap.initializeApp(FIREBASE_CONFIG, 'creator'); const a2 = au.getAuth(creator); const c = await au.createUserWithEmailAndPassword(a2, email, pass); const uid = c.user.uid; await au.signOut(a2); return uid; }
+    async createUser(email, pass) {
+      creator ||= ap.initializeApp(FIREBASE_CONFIG, 'creator'); const a2 = au.getAuth(creator); let c;
+      try { c = await au.createUserWithEmailAndPassword(a2, email, pass); }
+      catch (e) { if (e.code !== 'auth/email-already-in-use') throw e; try { c = await au.signInWithEmailAndPassword(a2, email, pass); } catch { throw e; } }
+      const uid = c.user.uid; await au.signOut(a2); return uid;
+    }
   };
 }
 const AUTH_ERR = c => ({

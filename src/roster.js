@@ -76,17 +76,23 @@ A.impCreate = async () => {
   const todo = I.rows.filter(r => r.ok && !r.done && r.name.trim().length > 2 && !(r.no && existing.has(r.no)));
   if (!todo.length) return toast('لا يوجد طلاب للإضافة');
   I.busy = true; let n = 0;
+  $('#imp-st').textContent = 'التحقق من الصلاحيات…';
+  try {
+    await DB.set('creds', '_check', { t: now() }); await DB.del('creds', '_check');
+    await DB.set('users', '_check', { name: 'فحص', email: '_check@' + STU_DOMAIN, role: 'student', classId: I.cls || S.classes[0]?.id, active: true }); await DB.del('users', '_check');
+  } catch (e) { I.busy = false; I.status = ''; impRender(); $('#imp-st').innerHTML = '<span style="color:var(--bad)">لم يُنشأ أي حساب: قواعد Firestore تحتاج تحديثًا. الصق ملف firestore.rules الجديد في Firebase ثم أعد المحاولة.</span>'; return; }
+  const pend = store.get('qz_pending_pw', {});
   for (const r of todo) {
     $('#imp-st').textContent = `جارٍ إنشاء الحسابات ${++n} من ${todo.length}…`;
-    const no = r.no || String(Math.floor(1e6 + Math.random() * 9e6)); const pass = genPass();
+    const no = r.no || String(Math.floor(1e6 + Math.random() * 9e6)); const pass = pend[no] || genPass(); pend[no] = pass; store.set('qz_pending_pw', pend);
     try {
       const uid = await AUTH.createUser(no + '@' + STU_DOMAIN, pass);
       await DB.set('users', uid, { name: r.name.trim(), email: no + '@' + STU_DOMAIN, role: 'student', classId: r.classId || I.cls, studentNo: no, active: true, createdAt: now(), createdByTeacher: true });
       await DB.set('creds', uid, { no, pass, name: r.name.trim(), classId: r.classId || I.cls, createdAt: now() });
-      r.no = no; r.done = true; r.err = '';
+      r.no = no; r.done = true; r.err = ''; delete pend[no]; store.set('qz_pending_pw', pend);
     } catch (e) { console.error(e); r.err = e.code === 'auth/email-already-in-use' ? 'الرقم مستخدم لحساب آخر' : e.code === 'auth/too-many-requests' ? 'تجاوز الحد، أكمل بعد ساعة' : e.code === 'permission-denied' ? 'حدّث قواعد Firestore' : 'تعذر'; if (e.code === 'auth/too-many-requests') break; }
   }
-  I.busy = false; const ok = todo.filter(r => r.done).length; I.status = `تم إنشاء ${ok} حساب${todo.length - ok ? `، وتعذر ${todo.length - ok}` : ''}. اطبع بطاقات الدخول من صفحة الطلاب.`;
+  I.busy = false; const ok = todo.filter(r => r.done).length; I.status = ok ? `تم إنشاء ${ok} حساب${todo.length - ok ? `، وتعذر ${todo.length - ok} (السبب بجانب كل اسم)` : ''}. اطبع بطاقات الدخول من صفحة الطلاب.` : `لم يُنشأ أي حساب، السبب مكتوب بجانب كل اسم`;
   await reload(); impRender();
 };
 
