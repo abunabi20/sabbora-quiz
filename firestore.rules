@@ -25,11 +25,15 @@ service cloud.firestore {
              && !('delegateClasses' in request.resource.data)
              && exists(/databases/$(db)/documents/classes/$(request.resource.data.classId)))
        || (request.resource.data.role == 'pending_delegate' && !('delegateClasses' in request.resource.data))
-       || (request.resource.data.role == 'admin' && isAdmin()));
+       || (request.resource.data.role == 'admin' && isAdmin())
+       || (request.resource.data.role == 'student' && isAdmin()));
       allow update: if isAdmin() || (signedIn() && request.auth.uid == uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone']));
       allow delete: if isAdmin();
     }
+
+    // بيانات دخول الطلاب الذين أنشأ المعلم حساباتهم: لا يراها إلا المدير
+    match /creds/{uid} { allow read, write: if isAdmin(); }
 
     match /quizzes/{qid} {
       allow read: if isAdmin()

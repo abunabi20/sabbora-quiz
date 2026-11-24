@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0d6a61">
+<meta name="theme-color" content="#c2417a">
 <title>سبورة | منصة الاختبارات</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=Readex+Pro:wght@300;400;500;600;700&family=Reem+Kufi:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d6a61'/%3E%3Cpath d='M12 4l2 5.5L19.5 11 14 13l-2 5.5L10 13l-5.5-2L10 9.5z' fill='%23ffd27a'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23c2417a'/%3E%3Cpath d='M12 4l2 5.5L19.5 11 14 13l-2 5.5L10 13l-5.5-2L10 9.5z' fill='%23ffd27a'/%3E%3C/svg%3E">
 <style>
 /*
 VOICE: هادئ ودافئ، يشبه دفتر معلّمة مرتب ومحبوب
@@ -17,18 +17,18 @@ COLOUR and TYPE: أخضر صنوبري سائد، نعناعي داعم، مرج
 LAYOUT: شريط جانبي على الشاشات الكبيرة وشريط سفلي على الجوال، محتوى حتى 1240px
 */
 :root{color-scheme:light dark;
---bg:light-dark(#eef4f1,#0b1513);--bg2:light-dark(#e3ede8,#0f1c1a);
---surface:light-dark(#ffffff,#13211f);--surface2:light-dark(#f4f8f6,#182a27);
---ink:light-dark(#12302b,#e4f0ec);--muted:light-dark(#5b746e,#93aaa4);
---line:light-dark(#d6e3de,#24403b);
---brand:light-dark(#0d6a61,#34bfae);--brand2:light-dark(#0a524b,#5fd6c6);--brandSoft:light-dark(#d9efea,#173a35);
---onbrand:light-dark(#ffffff,#06201d);
---accent:light-dark(#f06b4b,#ff8a6c);--accentSoft:light-dark(#fde5dd,#3a201a);
---gold:light-dark(#e0a22a,#f2c25a);--goldSoft:light-dark(#fbf0d6,#3a2f14);
+--bg:light-dark(#fbf2f6,#170d12);--bg2:light-dark(#f7e4ec,#1d1117);
+--surface:light-dark(#ffffff,#22141b);--surface2:light-dark(#fdf3f7,#2a1922);
+--ink:light-dark(#3b1429,#f7e8ef);--muted:light-dark(#8c5f74,#c7a3b4);
+--line:light-dark(#f1d7e2,#46283a);
+--brand:light-dark(#c2417a,#f283b4);--brand2:light-dark(#a3305f,#f7a3c8);--brandSoft:light-dark(#fce3ee,#4a2035);
+--onbrand:light-dark(#ffffff,#2a0b19);
+--accent:light-dark(#8a5cc9,#b896f0);--accentSoft:light-dark(#efe6fb,#2f2244);
+--gold:light-dark(#e0a22a,#f2c25a);--goldSoft:light-dark(#fcf1d9,#3a2f14);
 --ok:light-dark(#22895c,#4cd391);--okSoft:light-dark(#dcf3e7,#123224);
 --bad:light-dark(#cc4141,#ff7b7b);--badSoft:light-dark(#fbe1e1,#3a1717);
 --warn:light-dark(#b97f00,#f5c44f);--warnSoft:light-dark(#fff1cc,#3a3011);
---sh:0 1px 2px rgba(10,40,35,.06),0 8px 24px rgba(10,40,35,.07);
+--sh:0 1px 2px rgba(80,15,45,.06),0 8px 24px rgba(80,15,45,.08);
 --r:18px;--rs:12px}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
@@ -51,7 +51,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* shell */
 .shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
 .side{position:sticky;top:0;height:100vh;background:var(--brand);color:var(--onbrand);padding:22px 14px;display:flex;flex-direction:column;gap:6px;overflow:auto;
- background-image:radial-gradient(circle at 120% -10%,rgba(255,255,255,.16),transparent 45%),radial-gradient(circle at -30% 110%,rgba(240,107,75,.25),transparent 50%)}
+ background-image:radial-gradient(circle at 120% -10%,rgba(255,255,255,.16),transparent 45%),radial-gradient(circle at -30% 110%,rgba(138,92,201,.3),transparent 50%)}
 .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
 .logo b{font-family:"Reem Kufi";font-size:22px;line-height:1.1}
 .logo small{display:block;opacity:.75;font-size:12.5px;font-family:"Readex Pro"}
@@ -205,7 +205,7 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .rv.warn{border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
 
 /* modal / toast */
-.ov{position:fixed;inset:0;background:rgba(5,25,22,.45);backdrop-filter:blur(4px);z-index:90;display:grid;place-items:center;padding:16px;animation:fade .2s}
+.ov{position:fixed;inset:0;background:rgba(40,8,24,.45);backdrop-filter:blur(4px);z-index:90;display:grid;place-items:center;padding:16px;animation:fade .2s}
 .modal{background:var(--surface);border-radius:24px;padding:24px;width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.25);animation:pop .25s cubic-bezier(.2,.9,.3,1.2)}
 .modal.wide{width:min(900px,100%)}
 @keyframes fade{from{opacity:0}}@keyframes pop{from{transform:scale(.94);opacity:0}}
@@ -216,7 +216,7 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .auth .art{background:var(--brand);color:var(--onbrand);padding:clamp(24px,5vw,60px);display:flex;flex-direction:column;justify-content:space-between;gap:20px;position:relative;overflow:hidden}
 .auth .art h1{font-size:clamp(34px,5vw,52px);line-height:1.05}
 .auth .form{padding:clamp(24px,5vw,60px);display:flex;flex-direction:column;justify-content:center;gap:16px;max-width:520px;width:100%;margin-inline:auto}
-.auth .lugha{background-image:radial-gradient(circle at 85% 12%,rgba(255,217,138,.22),transparent 40%),radial-gradient(circle at 10% 95%,rgba(240,107,75,.22),transparent 45%)}
+.auth .lugha{background-image:radial-gradient(circle at 85% 12%,rgba(255,217,138,.22),transparent 40%),radial-gradient(circle at 10% 95%,rgba(138,92,201,.28),transparent 45%)}
 .auth .kick{font-size:17px;opacity:.85}
 .auth h1.ruq{font-family:"Aref Ruqaa","Reem Kufi",serif;font-weight:700;font-size:clamp(56px,8.5vw,96px);line-height:1.15;text-shadow:0 4px 18px rgba(0,0,0,.18)}
 .auth h1.ruq em{font-style:normal;color:#ffd98a}
@@ -264,12 +264,19 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
  .side,.bnav,.mtop,.noprint,.toast,.top .btn{display:none!important}
  .shell{display:block}.main{padding:0;max-width:none}
  .card,.stat,.item,.qcard{box-shadow:none;break-inside:avoid;border-color:#ccc}
- .print-head{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0d6a61;padding-bottom:10px;margin-bottom:16px}
+ .print-head{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #c2417a;padding-bottom:10px;margin-bottom:16px}
  body.print-cert .main>*:not(.cert-print){display:none!important}
  body.print-cert .cert{box-shadow:none;max-width:none;border-radius:0}
  .ov{position:static;background:none;backdrop-filter:none;padding:0}.ov .modal{box-shadow:none;max-height:none;width:100%;padding:0}
  body.has-modal .shell{display:none}
 }
+.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.lcard{border:2px dashed var(--brand);border-radius:18px;padding:16px;background:linear-gradient(160deg,var(--surface),var(--brandSoft));display:flex;flex-direction:column;gap:8px;break-inside:avoid}
+.lcard .ruqa{font-family:"Aref Ruqaa",serif;font-size:22px;color:var(--brand)}
+.lcard .nm{font-family:"Reem Kufi",sans-serif;font-size:20px;font-weight:700}
+.lcard .kv{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:10px;padding:6px 12px}
+.lcard .kv b{font-size:20px;letter-spacing:1px;font-variant-numeric:tabular-nums}
+@media print{.lcards{grid-template-columns:repeat(2,1fr);gap:8mm}.lcard{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 </head>
 <body>
@@ -293,6 +300,11 @@ const FIREBASE_CONFIG = {
 const ADMIN_EMAIL = 'nora141453@gmail.com';
 const LIVE = !!FIREBASE_CONFIG.apiKey;
 const FB_VER = '10.12.2';
+const STU_DOMAIN = 'students.lughati.app';
+const latinDigits = s => String(s ?? '').replace(/[\u0660-\u0669]/g, d => d.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, d => d.charCodeAt(0) - 0x6F0);
+const loginEmail = v => { v = latinDigits(v).trim().toLowerCase(); return v.includes('@') ? v : v.replace(/\s+/g, '') + '@' + STU_DOMAIN; };
+const isStuEmail = e => String(e || '').endsWith('@' + STU_DOMAIN);
+const genPass = () => String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -313,7 +325,7 @@ const fmtDate = t => t ? new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-l
 const fmtDT = t => t ? new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 const ago = t => { const d = (now() - t) / 1000; if (d < 60) return 'الآن'; if (d < 3600) return `قبل ${Math.floor(d / 60)} د`; if (d < 86400) return `قبل ${Math.floor(d / 3600)} س`; return fmtDate(t); };
 const initials = n => String(n || '؟').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join(' ');
-const PALETTE = ['#0d6a61', '#f06b4b', '#e0a22a', '#3d7bd9', '#8a5cc7', '#2e9e6b', '#d14f7c', '#1f8aa0'];
+const PALETTE = ['#c2417a', '#8a5cc9', '#e0a22a', '#3d7bd9', '#8a5cc7', '#2e9e6b', '#d14f7c', '#1f8aa0'];
 const colorOf = s => PALETTE[hashStr(s) % PALETTE.length];
 const grade5 = p => p >= 90 ? ['ممتاز', 'ok'] : p >= 80 ? ['جيد جدًا', 'br'] : p >= 65 ? ['جيد', 'gold'] : p >= 50 ? ['مقبول', 'warn'] : ['يحتاج دعمًا', 'bad'];
 const pctColor = p => p >= 85 ? 'var(--ok)' : p >= 65 ? 'var(--brand)' : p >= 50 ? 'var(--gold)' : 'var(--bad)';
@@ -601,13 +613,14 @@ function makeLocalAuth() {
     async signIn(email, pass) { const acc = store.get('qz_demo_acc', {}); const a = acc[email.toLowerCase()]; if (!a || a.pass !== pass) throw { code: 'auth/invalid-credential' }; store.set('qz_demo_sess', { uid: a.uid, email: email.toLowerCase() }); fire(); },
     async signUp(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; if (pass.length < 6) throw { code: 'auth/weak-password' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); store.set('qz_demo_sess', { uid: acc[e].uid, email: e }); fire(); },
     async signOut() { store.del('qz_demo_sess'); fire(); },
-    async sendVerify() { }, async reset() { }, async reload() { return cur(); }
+    async sendVerify() { }, async reset() { }, async reload() { return cur(); },
+    async createUser(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); return acc[e].uid; }
   };
 }
 async function makeFirebase() {
   const b = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
   const [ap, au, fs] = await Promise.all([import(b + 'firebase-app.js'), import(b + 'firebase-auth.js'), import(b + 'firebase-firestore.js')]);
-  const app = ap.initializeApp(FIREBASE_CONFIG); const auth = au.getAuth(app); const db = fs.getFirestore(app);
+  let creator; const app = ap.initializeApp(FIREBASE_CONFIG); const auth = au.getAuth(app); const db = fs.getFirestore(app);
   const cl = d => { const v = JSON.parse(JSON.stringify(d)); delete v.id; return v; };
   const q = (c, f) => f?.length ? fs.query(fs.collection(db, c), ...f.map(x => fs.where(...x))) : fs.collection(db, c);
   const map = s => s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -629,7 +642,8 @@ async function makeFirebase() {
     signOut: () => au.signOut(auth),
     sendVerify: () => au.sendEmailVerification(auth.currentUser),
     reset: e => au.sendPasswordResetEmail(auth, e),
-    async reload() { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return U(auth.currentUser); }
+    async reload() { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return U(auth.currentUser); },
+    async createUser(email, pass) { creator ||= ap.initializeApp(FIREBASE_CONFIG, 'creator'); const a2 = au.getAuth(creator); const c = await au.createUserWithEmailAndPassword(a2, email, pass); const uid = c.user.uid; await au.signOut(a2); return uid; }
   };
 }
 const AUTH_ERR = c => ({
@@ -719,16 +733,16 @@ const avatar = (n, size = 42) => `<span class="av" style="background:${colorOf(n
 const printHead = t => `<div class="print-head"><div><b class="disp" style="font-size:22px">${esc(t)}</b><div class="small">${esc(S.settings.schoolName || 'منصة الاختبارات')} · ${esc(S.settings.teacherName || '')}</div></div><div class="small">${fmtDate(now())}</div></div>`;
 
 /* hero art: chalkboard with paper notes */
-const ART = `<svg class="art" viewBox="0 0 260 190" aria-hidden="true"><rect x="18" y="20" width="224" height="140" rx="16" fill="rgba(0,0,0,.18)"/><rect x="12" y="12" width="224" height="140" rx="16" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)" stroke-width="2"/><path d="M40 52h90M40 72h130M40 92h70" stroke="rgba(255,255,255,.7)" stroke-width="5" stroke-linecap="round"/><g transform="rotate(-6 190 60)"><rect x="160" y="34" width="62" height="62" rx="8" fill="#ffd27a"/><path d="M172 64l10 10 20-24" stroke="#0d6a61" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="rotate(8 120 128)"><rect x="96" y="104" width="56" height="50" rx="8" fill="#ff9a80"/><path d="M108 122h32M108 134h22" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g><circle cx="58" cy="128" r="18" fill="#bff0e7"/><path d="M50 128l6 6 10-12" stroke="#0d6a61" stroke-width="5" fill="none" stroke-linecap="round"/><rect x="60" y="160" width="140" height="10" rx="5" fill="rgba(255,255,255,.3)"/></svg>`;
+const ART = `<svg class="art" viewBox="0 0 260 190" aria-hidden="true"><rect x="18" y="20" width="224" height="140" rx="16" fill="rgba(0,0,0,.18)"/><rect x="12" y="12" width="224" height="140" rx="16" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)" stroke-width="2"/><path d="M40 52h90M40 72h130M40 92h70" stroke="rgba(255,255,255,.7)" stroke-width="5" stroke-linecap="round"/><g transform="rotate(-6 190 60)"><rect x="160" y="34" width="62" height="62" rx="8" fill="#ffd27a"/><path d="M172 64l10 10 20-24" stroke="#a3305f" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="rotate(8 120 128)"><rect x="96" y="104" width="56" height="50" rx="8" fill="#ff9a80"/><path d="M108 122h32M108 134h22" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g><circle cx="58" cy="128" r="18" fill="#ffd1e4"/><path d="M50 128l6 6 10-12" stroke="#a3305f" stroke-width="5" fill="none" stroke-linecap="round"/><rect x="60" y="160" width="140" height="10" rx="5" fill="rgba(255,255,255,.3)"/></svg>`;
 
 const BOOK = `<svg class="big book" viewBox="0 0 350 250" role="img" aria-label="كتاب مفتوح تتطاير منه حروف عربية"><defs><linearGradient id="pg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#f3e6c8"/></linearGradient><linearGradient id="gd" x1="0" x2="1"><stop offset="0" stop-color="#ffd98a"/><stop offset="1" stop-color="#e9a83a"/></linearGradient></defs>
 <ellipse cx="170" cy="226" rx="132" ry="12" fill="rgba(0,0,0,.22)"/>
-<path d="M30 92 Q100 74 168 98 L168 222 Q100 198 30 214 Z" fill="#0a4d46"/><path d="M310 92 Q240 74 172 98 L172 222 Q240 198 310 214 Z" fill="#0a4d46"/>
+<path d="M30 92 Q100 74 168 98 L168 222 Q100 198 30 214 Z" fill="#7d2350"/><path d="M310 92 Q240 74 172 98 L172 222 Q240 198 310 214 Z" fill="#7d2350"/>
 <path d="M38 86 Q102 66 168 92 L168 214 Q102 190 38 206 Z" fill="url(#pg)"/><path d="M302 86 Q238 66 172 92 L172 214 Q238 190 302 206 Z" fill="url(#pg)"/>
 <path d="M168 92 L168 214 M172 92 L172 214" stroke="#d9c49a" stroke-width="2"/>
 <g stroke="#c9b083" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M60 110 Q108 98 152 112"/><path d="M60 128 Q108 116 152 130"/><path d="M60 146 Q100 136 140 146"/><path d="M60 164 Q108 152 152 166"/><path d="M188 112 Q232 98 280 110"/><path d="M188 130 Q232 116 280 128"/><path d="M200 146 Q240 136 280 146"/><path d="M188 166 Q232 152 280 164"/></g>
-<text x="104" y="196" text-anchor="middle" font-family="Aref Ruqaa,serif" font-size="26" fill="#0d6a61">لغتي</text><text x="238" y="196" text-anchor="middle" font-family="Aref Ruqaa,serif" font-size="26" fill="#c0612f">هويتي</text>
-<g font-family="Aref Ruqaa,serif" font-weight="700"><text x="170" y="62" text-anchor="middle" font-size="70" fill="url(#gd)">ض</text><text x="92" y="52" font-size="36" fill="#bff0e7" transform="rotate(-14 92 52)">أ</text><text x="250" y="46" font-size="34" fill="#ffb39e" transform="rotate(12 250 46)">ع</text><text x="40" y="70" font-size="26" fill="#ffd98a" opacity=".9">ب</text><text x="292" y="78" font-size="28" fill="#bff0e7" opacity=".9">ن</text></g>
+<text x="104" y="196" text-anchor="middle" font-family="Aref Ruqaa,serif" font-size="26" fill="#a3305f">لغتي</text><text x="238" y="196" text-anchor="middle" font-family="Aref Ruqaa,serif" font-size="26" fill="#c0612f">هويتي</text>
+<g font-family="Aref Ruqaa,serif" font-weight="700"><text x="170" y="62" text-anchor="middle" font-size="70" fill="url(#gd)">ض</text><text x="92" y="52" font-size="36" fill="#ffd1e4" transform="rotate(-14 92 52)">أ</text><text x="250" y="46" font-size="34" fill="#e3d0ff" transform="rotate(12 250 46)">ع</text><text x="40" y="70" font-size="26" fill="#ffd98a" opacity=".9">ب</text><text x="292" y="78" font-size="28" fill="#ffd1e4" opacity=".9">ن</text></g>
 <g fill="#fff"><path d="M128 22l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" opacity=".85"/><path d="M220 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" opacity=".7"/><circle cx="66" cy="34" r="2.5" opacity=".6"/><circle cx="300" cy="30" r="2" opacity=".6"/></g>
 <g transform="translate(36 -40) rotate(30 268 150)"><rect x="258" y="96" width="14" height="96" rx="5" fill="#8a5a2b"/><rect x="258" y="96" width="5" height="96" rx="2.5" fill="#b07a42"/><path d="M258 192 L265 214 L272 192 Z" fill="#2b1d10"/></g><circle cx="322" cy="168" r="4.5" fill="#2b1d10" opacity=".7"/></svg>`;
 
@@ -765,7 +779,7 @@ function viewGate() {
   if (!S.user) {
     const m = S.authMode;
     form = `<div><h2>${m === 'in' ? 'تسجيل الدخول' : m === 'up' ? 'إنشاء حساب جديد' : 'استعادة كلمة المرور'}</h2><p class="muted" style="margin-top:6px">${m === 'up' ? 'للطلاب والمعلمين المتعاونين. بعد التسجيل تختار فصلك.' : m === 'in' ? 'أهلًا بعودتك' : 'نرسل لك رابطًا لتعيين كلمة مرور جديدة'}</p></div>
-    <form class="col" data-f="auth"><label class="f">البريد الإلكتروني<input class="in" id="a-email" type="email" autocomplete="email" required dir="ltr"></label>${m !== 'reset' ? `<label class="f">كلمة المرور<input class="in" id="a-pass" type="password" autocomplete="${m === 'up' ? 'new-password' : 'current-password'}" required minlength="6" dir="ltr"></label>` : ''}${m === 'up' ? `<label class="f">تأكيد كلمة المرور<input class="in" id="a-pass2" type="password" autocomplete="new-password" required dir="ltr"></label>` : ''}<p id="a-err" class="small" style="color:var(--bad);min-height:1.2em"></p><button class="btn" type="submit">${m === 'in' ? 'دخول' : m === 'up' ? 'إنشاء الحساب' : 'إرسال الرابط'}</button></form>
+    <form class="col" data-f="auth"><label class="f">${m === 'in' ? 'البريد الإلكتروني أو رقم الطالب' : 'البريد الإلكتروني'}<input class="in" id="a-email" type="${m === 'in' ? 'text' : 'email'}" autocomplete="username" required dir="ltr"></label>${m !== 'reset' ? `<label class="f">كلمة المرور<input class="in" id="a-pass" type="password" autocomplete="${m === 'up' ? 'new-password' : 'current-password'}" required minlength="6" dir="ltr"></label>` : ''}${m === 'up' ? `<label class="f">تأكيد كلمة المرور<input class="in" id="a-pass2" type="password" autocomplete="new-password" required dir="ltr"></label>` : ''}<p id="a-err" class="small" style="color:var(--bad);min-height:1.2em"></p><button class="btn" type="submit">${m === 'in' ? 'دخول' : m === 'up' ? 'إنشاء الحساب' : 'إرسال الرابط'}</button></form>
     <div class="row sp small">${m !== 'in' ? `<button class="btn ghost sm" data-a="authMode" data-m="in">لدي حساب</button>` : `<button class="btn ghost sm" data-a="authMode" data-m="up">حساب جديد</button><button class="btn ghost sm" data-a="authMode" data-m="reset">نسيت كلمة المرور</button>`}</div>
     ${!LIVE ? `<div class="card flat" style="background:var(--surface2)"><b>جرّب المعاينة مباشرة</b><p class="small muted" style="margin:4px 0 10px">بيانات تجريبية جاهزة لتشاهد كل الواجهات</p><div class="row"><button class="btn sm" data-a="demoLogin" data-r="admin">دخول كمعلم (المدير)</button><button class="btn sm acc" data-a="demoLogin" data-r="student">دخول كطالب</button><button class="btn sm ghost" data-a="demoLogin" data-r="delegate">دخول كمفوض</button></div></div>` : ''}`;
   } else if (LIVE && S.user.email === ADMIN_EMAIL && !S.user.emailVerified) {
@@ -789,9 +803,9 @@ A.verified = async () => { try { const u = await AUTH.reload(); S.user = u; if (
 A.resendVerify = () => safe(() => AUTH.sendVerify(), 'تم إرسال الرابط');
 A.recheck = async () => { S.me = await DB.get('users', S.user.uid); if (S.me?.role !== 'pending_delegate') await onAuthed(S.user); else { render(); toast('ما زال الطلب قيد المراجعة'); } };
 async function submitAuth() {
-  const e = $('#a-email').value.trim().toLowerCase(), p = $('#a-pass')?.value, err = $('#a-err'); err.textContent = '';
+  const e = S.authMode === 'in' ? loginEmail($('#a-email').value) : $('#a-email').value.trim().toLowerCase(), p = $('#a-pass')?.value, err = $('#a-err'); err.textContent = '';
   try {
-    if (S.authMode === 'reset') { await AUTH.reset(e); toast('أرسلنا رابط الاستعادة إلى بريدك'); S.authMode = 'in'; render(); return; }
+    if (S.authMode === 'reset') { if (!e.includes('@') || isStuEmail(e)) { err.textContent = 'الطالب الذي أنشأ المعلم حسابه يطلب كلمة المرور من معلمه'; return; } await AUTH.reset(e); toast('أرسلنا رابط الاستعادة إلى بريدك'); S.authMode = 'in'; render(); return; }
     if (S.authMode === 'up') { if (p !== $('#a-pass2').value) { err.textContent = 'كلمتا المرور غير متطابقتين'; return; } await AUTH.signUp(e, p); if (LIVE && e === ADMIN_EMAIL) await AUTH.sendVerify(); }
     else await AUTH.signIn(e, p);
   } catch (x) { err.textContent = AUTH_ERR(x.code); }
@@ -843,7 +857,8 @@ async function loadStaff() {
   if (isAdmin()) [qz, subs, users] = await Promise.all([DB.query('quizzes'), DB.query('submissions'), DB.query('users')]);
   else [qz, subs, users] = await Promise.all([DB.query('quizzes', [['createdBy', '==', S.user.uid]]), DB.query('submissions', [['ownerId', '==', S.user.uid]]), DB.query('users')]);
   S.quizzes = qz.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); S.subs = subs; S.users = users;
-  const [revs, tpl] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => [])]);
+  const [revs, tpl, creds] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : []]);
+  S.creds = Object.fromEntries(creds.map(c => [c.id, c]));
   S.reviews = Object.fromEntries(revs.map(r => [r.id, r])); S.templates = tpl;
   const ks = await Promise.all(S.quizzes.map(q => DB.get('quizKeys', q.id).catch(() => null)));
   S.keys = Object.fromEntries(S.quizzes.map((q, i) => [q.id, ks[i]]));
@@ -1065,9 +1080,9 @@ A.edSave = async el => {
 };
 
 /* ---------------- AI (Gemini) ---------------- */
-async function gemini(prompt) {
+async function gemini(prompt, img) {
   S.ai ||= await DB.get('settings', 'ai'); const ai = S.ai; if (!ai?.key) throw new Error('أضف مفتاح Gemini من الإعدادات أولًا');
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ai.model || 'gemini-2.5-flash')}:generateContent?key=${encodeURIComponent(ai.key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', temperature: .35 } }) });
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ai.model || 'gemini-2.5-flash')}:generateContent?key=${encodeURIComponent(ai.key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, ...(img ? [{ inline_data: { mime_type: 'image/jpeg', data: img.split(',')[1] } }] : [])] }], generationConfig: { responseMimeType: 'application/json', temperature: .35 } }) });
   const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || 'خطأ من Gemini'); return JSON.parse(j.candidates[0].content.parts[0].text);
 }
 A.aiGenOpen = () => { if (!isAdmin()) return toast('التوليد الذكي متاح للمدير'); openModal(`<h2>${ico('wand', 'style="width:26px;vertical-align:middle"')} توليد أسئلة بالذكاء الاصطناعي</h2><p class="muted small" style="margin:8px 0">الصق الدرس أو اكتب الموضوع، وسأقترح أسئلة متنوعة تراجعها قبل الحفظ.</p><textarea class="in" id="ai-src" style="min-height:160px" placeholder="الصق نص الدرس هنا"></textarea><div class="grid g2" style="margin-top:10px"><label class="f">عدد الأسئلة<input class="in" id="ai-n" type="number" value="8" min="1" max="30"></label><label class="f">المستوى<select class="in" id="ai-lv"><option>متوسط</option><option>سهل</option><option>متقدم</option></select></label></div><p id="ai-st" class="small muted" style="margin-top:8px"></p><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" data-a="close">إلغاء</button><button class="btn acc" data-a="aiGen">${ico('spark')} ولّد الأسئلة</button></div>`, true); };
@@ -1149,14 +1164,14 @@ A.subReset = async el => { if (!await ask('السماح بإعادة الاخت�
 VIEWS.students = () => {
   const c = S.p.c || '', qy = (S.p.q || '').trim(); let list = students().filter(u => (!c || u.classId === c) && (!qy || normAr(u.name).includes(normAr(qy)) || (u.studentNo || '').includes(qy)));
   const rows = list.map(u => { const e = studentEvals(u.id); return { u, n: e.length, a: avg(e.map(x => x.ev.pct)) }; }).sort((a, b) => a.u.name.localeCompare(b.u.name, 'ar'));
-  return `<div class="top"><div class="t"><h1>الطلاب</h1><p class="muted">${list.length} طالب${c ? ' في ' + esc(clsName(c)) : ''}</p></div><button class="btn ghost" data-a="exportStudents">${ico('dl')} تصدير Excel</button></div>
+  return `<div class="top"><div class="t"><h1>الطلاب</h1><p class="muted">${list.length} طالب${c ? ' في ' + esc(clsName(c)) : ''}</p></div><div class="row">${isAdmin() ? `<button class="btn" data-a="impOpen">${ico('plus')} إضافة طلاب</button><button class="btn ghost" data-a="go" data-v="cards" data-c="${esc(c)}" data-from="students">${ico('print')} بطاقات الدخول</button>` : ''}<button class="btn ghost" data-a="exportStudents">${ico('dl')} تصدير Excel</button></div></div>
   <div class="row" style="margin-bottom:16px"><input class="in" style="max-width:320px" placeholder="بحث بالاسم أو الرقم" id="st-q" value="${esc(qy)}" data-c="stFilter"><select class="in" style="max-width:260px" id="st-c" data-c="stFilter"><option value="">كل الفصول</option>${myClasses().map(x => `<option value="${x.id}" ${c === x.id ? 'selected' : ''}>${esc(x.name)} (${classStudents(x.id).length})</option>`).join('')}</select></div>
-  ${rows.length ? `<div class="card" style="padding:0;overflow:hidden"><table class="stack"><thead><tr><th>الطالب</th><th>الفصل</th><th class="num">الاختبارات</th><th>المتوسط</th><th></th></tr></thead><tbody>${rows.map(({ u, n, a }) => `<tr><td><div class="row" style="gap:10px;flex-wrap:nowrap">${avatar(u.name, 34)}<div><b>${esc(u.name)}</b>${u.active === false ? ' <span class="chip bad">موقوف</span>' : ''}<div class="small muted">${esc(u.studentNo || u.email)}</div></div></div></td><td>${esc(clsName(u.classId))}</td><td class="num">${n}</td><td>${n ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><div class="bar grow"><i style="width:${a}%;background:${pctColor(a)}"></i></div><b class="small">${r1(a)}%</b></div>` : '<span class="muted small">لم يختبر بعد</span>'}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm soft" data-a="go" data-v="sreport" data-id="${u.id}" data-from="students">${ico('chart')} تقرير</button><button class="btn icon sm ghost" data-a="msgTo" data-id="${u.id}" title="رسالة">${ico('msg')}</button><button class="btn icon sm ghost" data-a="certTo" data-id="${u.id}" title="شهادة">${ico('cert')}</button>${isAdmin() ? `<button class="btn icon sm ghost" data-a="stEdit" data-id="${u.id}" title="تعديل">${ico('edit')}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>` : empty('لا يوجد طلاب. يسجل الطلاب بأنفسهم من صفحة الدخول ويختارون فصولهم', 'users')}`;
+  ${rows.length ? `<div class="card" style="padding:0;overflow:hidden"><table class="stack"><thead><tr><th>الطالب</th><th>الفصل</th><th class="num">الاختبارات</th><th>المتوسط</th><th></th></tr></thead><tbody>${rows.map(({ u, n, a }) => `<tr><td><div class="row" style="gap:10px;flex-wrap:nowrap">${avatar(u.name, 34)}<div><b>${esc(u.name)}</b>${u.active === false ? ' <span class="chip bad">موقوف</span>' : ''}<div class="small muted">${esc(u.studentNo || u.email)}${isStuEmail(u.email) ? ' · أنشأه المعلم' : ''}</div></div></div></td><td>${esc(clsName(u.classId))}</td><td class="num">${n}</td><td>${n ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><div class="bar grow"><i style="width:${a}%;background:${pctColor(a)}"></i></div><b class="small">${r1(a)}%</b></div>` : '<span class="muted small">لم يختبر بعد</span>'}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm soft" data-a="go" data-v="sreport" data-id="${u.id}" data-from="students">${ico('chart')} تقرير</button><button class="btn icon sm ghost" data-a="msgTo" data-id="${u.id}" title="رسالة">${ico('msg')}</button><button class="btn icon sm ghost" data-a="certTo" data-id="${u.id}" title="شهادة">${ico('cert')}</button>${isAdmin() ? `<button class="btn icon sm ghost" data-a="stEdit" data-id="${u.id}" title="تعديل">${ico('edit')}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>` : empty('لا يوجد طلاب. يسجل الطلاب بأنفسهم من صفحة الدخول ويختارون فصولهم', 'users')}`;
 };
 A.stFilter = () => { S.p.q = $('#st-q').value; S.p.c = $('#st-c').value; render(); };
-A.stEdit = el => { const u = userById(el.dataset.id); openModal(`<h2>تعديل بيانات الطالب</h2><form class="col" data-f="stSave" data-id="${u.id}" style="margin-top:14px"><label class="f">الاسم<input class="in" id="se-n" value="${esc(u.name)}" required></label><label class="f">الفصل<select class="in" id="se-c">${S.classes.map(c => `<option value="${c.id}" ${c.id === u.classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><label class="f">رقم الطالب<input class="in" id="se-no" value="${esc(u.studentNo || '')}"></label><label class="f">الجوال<input class="in" id="se-p" value="${esc(u.phone || '')}" dir="ltr"></label><p class="small muted" dir="ltr" style="text-align:start">${esc(u.email)}</p><label class="sw"><input type="checkbox" id="se-a" ${u.active !== false ? 'checked' : ''}> الحساب مفعّل</label><div class="row" style="justify-content:space-between;margin-top:8px"><button type="button" class="btn danger" data-a="stDel" data-id="${u.id}">حذف الطالب</button><div class="row"><button type="button" class="btn ghost" data-a="close">إلغاء</button><button class="btn" type="submit">حفظ</button></div></div></form>`); };
+A.stEdit = el => { const u = userById(el.dataset.id); openModal(`<h2>تعديل بيانات الطالب</h2><form class="col" data-f="stSave" data-id="${u.id}" style="margin-top:14px"><label class="f">الاسم<input class="in" id="se-n" value="${esc(u.name)}" required></label><label class="f">الفصل<select class="in" id="se-c">${S.classes.map(c => `<option value="${c.id}" ${c.id === u.classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><label class="f">رقم الطالب<input class="in" id="se-no" value="${esc(u.studentNo || '')}"></label><label class="f">الجوال<input class="in" id="se-p" value="${esc(u.phone || '')}" dir="ltr"></label>${S.creds?.[u.id] ? `<div class="alert br small">رقم الدخول: <b dir="ltr">${esc(S.creds[u.id].no)}</b> · كلمة المرور: <b dir="ltr">${esc(S.creds[u.id].pass)}</b></div>` : `<p class="small muted" dir="ltr" style="text-align:start">${esc(u.email)}</p>`}<label class="sw"><input type="checkbox" id="se-a" ${u.active !== false ? 'checked' : ''}> الحساب مفعّل</label><div class="row" style="justify-content:space-between;margin-top:8px"><button type="button" class="btn danger" data-a="stDel" data-id="${u.id}">حذف الطالب</button><div class="row"><button type="button" class="btn ghost" data-a="close">إلغاء</button><button class="btn" type="submit">حفظ</button></div></div></form>`); };
 FORMS.stSave = f => safe(async () => { await DB.update('users', f.dataset.id, { name: $('#se-n').value.trim(), classId: $('#se-c').value, studentNo: $('#se-no').value.trim(), phone: $('#se-p').value.trim(), active: $('#se-a').checked }); closeModal(); await reload(); }, 'تم الحفظ');
-A.stDel = async el => { closeModal(); if (!await ask('حذف الطالب؟', 'تُحذف بياناته وتسليماته من المنصة. يبقى حساب الدخول ويمكنه التسجيل من جديد.', 'حذف', true)) return; safe(async () => { for (const s of S.subs.filter(s => s.uid === el.dataset.id)) await DB.del('submissions', s.id); await DB.del('users', el.dataset.id); await reload(); }, 'تم الحذف'); };
+A.stDel = async el => { closeModal(); if (!await ask('حذف الطالب؟', 'تُحذف بياناته وتسليماته من المنصة. يبقى حساب الدخول ويمكنه التسجيل من جديد.', 'حذف', true)) return; safe(async () => { for (const s of S.subs.filter(s => s.uid === el.dataset.id)) await DB.del('submissions', s.id); await DB.del('users', el.dataset.id); await DB.del('creds', el.dataset.id).catch(() => { }); await reload(); }, 'تم الحذف'); };
 A.exportStudents = () => { const rows = [['الاسم', 'الفصل', 'رقم الطالب', 'البريد', 'الجوال', 'عدد الاختبارات', 'المتوسط %', ...S.quizzes.filter(q => q.status !== 'draft').map(q => q.title)]]; for (const u of students()) { const e = studentEvals(u.id); rows.push([u.name, clsName(u.classId), u.studentNo || '', u.email, u.phone || '', e.length, r1(avg(e.map(x => x.ev.pct))), ...S.quizzes.filter(q => q.status !== 'draft').map(q => { const x = e.find(y => y.q.id === q.id); return x ? x.ev.total : ''; })]); } downloadCSV('الطلاب-والدرجات', rows); };
 
 /* ---------------- classes ---------------- */
@@ -1465,6 +1480,107 @@ VIEWS.compare = () => {
   const qs = S.quizzes.filter(q => ['published', 'closed'].includes(q.status));
   return `<div class="top noprint">${backBtn()}${prBtn}</div>${printHead('مقارنة الفصول')}<h1 style="margin-bottom:16px">مقارنة الفصول</h1>${qs.length ? `<div class="grid g2">${qs.map(q => `<div class="card"><h3>${esc(q.title)}</h3>${hbars(q.classIds.map(c => { const r = quizResults(q.id).filter(x => x.sub.classId === c); return { l: clsName(c), v: avg(r.map(x => x.ev.pct)), c: colorOf(c) }; }))}</div>`).join('')}</div>` : empty('لا توجد بيانات')}`;
 };
+
+/* ---------------- adding students by the teacher (paste / Excel / image) ---------------- */
+const HEAD_RE = /^(م|#|ت|الرقم|رقم|الاسم|اسم الطالب|اسم الطالبة|الطالب|الطالبة|name|no|id|الفصل|الصف)$/i;
+function parseRoster(txt, defCls) {
+  const out = [];
+  for (let line of String(txt || '').replace(/\r/g, '').split('\n')) {
+    line = line.trim(); if (!line) continue;
+    let cells = line.split(/\t|,|؛|;|\|/).map(x => x.trim()).filter(Boolean);
+    let name = '', no = '', classId = defCls || '';
+    if (cells.length === 1) { const m = latinDigits(line).match(/\d{3,}/); if (m) { no = m[0]; cells = [line.replace(/[0-9٠-٩]{3,}/, '').trim()]; } }
+    for (const c of cells) {
+      const d = latinDigits(c).replace(/\s/g, '');
+      if (/^\d{3,}$/.test(d) && !no) { no = d; continue; }
+      if (/^\d{1,2}[-.)]?$/.test(d)) continue;
+      const k = S.classes.find(x => normAr(x.name) === normAr(c) || (normAr(c).length > 3 && normAr(x.name).includes(normAr(c))));
+      if (k && cells.length > 1) { classId = k.id; continue; }
+      if (/\p{L}/u.test(c) && c.length > name.length) name = c;
+    }
+    name = name.replace(/^[0-9٠-٩]+\s*[-.)]\s*/, '').replace(/\s+/g, ' ').trim();
+    if (name.length < 3 || HEAD_RE.test(name)) continue;
+    out.push({ name, no, classId, ok: true });
+  }
+  return out;
+}
+const loadScript = src => new Promise((res, rej) => { if ([...document.scripts].some(s => s.src === src)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('تعذر تحميل المكتبة')); document.head.appendChild(s); });
+
+A.impOpen = () => { S.imp = { tab: 'paste', cls: S.p.c || myClasses()[0]?.id || '', rows: [], status: '' }; impRender(); };
+function impRender() {
+  const I = S.imp; const existing = new Set(students().map(u => u.studentNo).filter(Boolean));
+  const rows = I.rows.map((r, i) => { const dup = r.no && existing.has(r.no); return `<tr><td><input type="checkbox" data-ib="${i}:ok" ${r.ok && !dup ? 'checked' : ''} ${dup ? 'disabled' : ''}></td><td><input class="in" style="min-height:38px" data-ib="${i}:name" value="${esc(r.name)}"></td><td><input class="in" style="min-height:38px;width:130px" dir="ltr" data-ib="${i}:no" value="${esc(r.no)}" placeholder="تلقائي"></td><td><select class="in" style="min-height:38px" data-ib="${i}:classId">${S.classes.map(c => `<option value="${c.id}" ${c.id === (r.classId || I.cls) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></td><td class="small">${dup ? '<span class="chip warn">مسجل مسبقًا</span>' : r.err ? `<span class="chip bad">${esc(r.err)}</span>` : r.done ? '<span class="chip ok">تم</span>' : ''}</td></tr>`; }).join('');
+  openModal(`<div class="row sp"><h2>${ico('users', 'style="width:26px;vertical-align:middle"')} إضافة طلاب</h2><button class="btn ghost sm" data-a="close">إغلاق</button></div>
+  <p class="muted small" style="margin:6px 0 14px">ينشئ النظام لكل طالب حسابًا برقم دخول وكلمة مرور، ثم تطبع بطاقاتهم وتوزعها. الطالب يدخل برقمه بدون بريد إلكتروني.</p>
+  <label class="f" style="max-width:360px">الفصل الافتراضي<select class="in" id="imp-cls" data-c="impCls">${myClasses().map(c => `<option value="${c.id}" ${c.id === I.cls ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+  <div class="tabs" style="margin:14px 0">${[['paste', 'لصق من Excel'], ['file', 'ملف Excel'], ['img', 'صورة قائمة']].map(([k, l]) => `<button class="${I.tab === k ? 'on' : ''}" data-a="impTab" data-t="${k}">${l}</button>`).join('')}</div>
+  ${I.tab === 'paste' ? `<textarea class="in" id="imp-txt" style="min-height:150px" placeholder="انسخ عمود الأسماء (ومعه رقم الطالب إن وجد) من Excel والصقه هنا&#10;سارة محمد الدوسري	1120345&#10;لمى عبدالله القحطاني	1120346"></textarea><button class="btn soft" style="margin-top:10px" data-a="impParse">قراءة القائمة</button>`
+    : I.tab === 'file' ? `<label class="btn soft" style="cursor:pointer">${ico('dl')} اختر ملف Excel أو CSV<input type="file" hidden accept=".xlsx,.xls,.csv" data-c="impFile"></label><p class="small muted" style="margin-top:8px">يقرأ الورقة الأولى: عمود الاسم، ورقم الطالب إن وجد، والفصل إن وجد</p>`
+    : `<label class="btn soft" style="cursor:pointer">${ico('img')} اختر صورة القائمة أو صوّرها<input type="file" hidden accept="image/*" data-c="impImg"></label><p class="small muted" style="margin-top:8px">${S.ai?.key ? 'يقرأ الصورة بالذكاء الاصطناعي (Gemini) بدقة عالية' : 'يقرأ الصورة بقارئ نصوص مجاني. للحصول على دقة أعلى مع الخط اليدوي أضف مفتاح Gemini من الإعدادات'}. راجع الأسماء بعد القراءة.</p>`}
+  <p class="small" id="imp-st" style="margin-top:10px;color:var(--brand);font-weight:600">${esc(I.status)}</p>
+  ${I.rows.length ? `<div class="scroll" style="margin-top:6px;max-height:340px;overflow:auto"><table><thead><tr><th></th><th>الاسم</th><th>رقم الدخول</th><th>الفصل</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="row sp" style="margin-top:14px"><span class="small muted">${I.rows.filter(r => r.ok && !(r.no && existing.has(r.no)) && !r.done).length} طالب جاهز للإضافة</span><div class="row"><button class="btn ghost" data-a="impAddRow">${ico('plus')} صف</button><button class="btn" data-a="impCreate" ${I.busy ? 'disabled' : ''}>${ico('check')} إنشاء الحسابات</button></div></div>` : ''}`, true);
+}
+A.impTab = el => { S.imp.tab = el.dataset.t; impRender(); };
+A.impCls = el => { S.imp.cls = el.value; };
+A.impAddRow = () => { S.imp.rows.push({ name: '', no: '', classId: S.imp.cls, ok: true }); impRender(); };
+document.addEventListener('input', e => { const el = e.target.closest('[data-ib]'); if (!el || !S.imp) return; const [i, f] = el.dataset.ib.split(':'); S.imp.rows[+i][f] = el.type === 'checkbox' ? el.checked : f === 'no' ? latinDigits(el.value).trim() : el.value; });
+document.addEventListener('change', e => { const el = e.target.closest('[data-ib]'); if (el && el.tagName === 'SELECT' && S.imp) S.imp.rows[+el.dataset.ib.split(':')[0]].classId = el.value; });
+const impSet = rows => { const I = S.imp; I.cls = $('#imp-cls')?.value || I.cls; rows.forEach(r => r.classId ||= I.cls); I.rows.push(...rows); I.status = rows.length ? `تمت قراءة ${rows.length} اسم، راجعها ثم اضغط إنشاء الحسابات` : 'لم أتعرف على أسماء، جرّب طريقة أخرى'; impRender(); };
+A.impParse = () => impSet(parseRoster($('#imp-txt').value, $('#imp-cls').value));
+A.impFile = async el => {
+  const f = el.files[0]; if (!f) return; $('#imp-st').textContent = 'جارٍ قراءة الملف…';
+  try {
+    if (/\.csv$/i.test(f.name)) return impSet(parseRoster(await f.text()));
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const wb = XLSX.read(await f.arrayBuffer()); const ws = wb.Sheets[wb.SheetNames[0]];
+    impSet(parseRoster(XLSX.utils.sheet_to_csv(ws, { FS: '\t', blankrows: false })));
+  } catch (e) { $('#imp-st').textContent = 'تعذرت قراءة الملف: ' + e.message; }
+};
+A.impImg = async el => {
+  const f = el.files[0]; if (!f) return; const st = $('#imp-st'); st.textContent = 'جارٍ تجهيز الصورة…';
+  try {
+    const img = await resizeImg(f, 1800);
+    S.ai ||= isAdmin() ? await DB.get('settings', 'ai').catch(() => null) : null;
+    if (S.ai?.key) {
+      st.textContent = 'يقرأ الذكاء الاصطناعي الأسماء…';
+      const r = await gemini(`هذه صورة قائمة طلاب. استخرج كل اسم طالب كما هو مكتوب بالعربية، ورقم الطالب أو الهوية إن وجد، والفصل إن كان مكتوبًا بجانب الاسم. تجاهل العناوين والترقيم والتواقيع. أعد JSON فقط: {"students":[{"name":"...","number":"...","className":"..."}]}`, img);
+      impSet((r.students || []).map(x => ({ name: String(x.name || '').trim(), no: latinDigits(x.number || '').replace(/\D/g, ''), classId: S.classes.find(c => x.className && normAr(c.name).includes(normAr(x.className)))?.id || '', ok: true })).filter(x => x.name.length > 2));
+    } else {
+      st.textContent = 'تحميل قارئ النصوص (أول مرة قد يستغرق دقيقة)…';
+      await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+      const res = await Tesseract.recognize(img, 'ara+eng', { logger: m => { if (m.status === 'recognizing text') st.textContent = `جارٍ قراءة الصورة ${Math.round(m.progress * 100)}%`; } });
+      impSet(parseRoster(res.data.text));
+    }
+  } catch (e) { st.textContent = 'تعذرت قراءة الصورة: ' + e.message; }
+};
+A.impCreate = async () => {
+  const I = S.imp; const existing = new Set(students().map(u => u.studentNo).filter(Boolean));
+  const todo = I.rows.filter(r => r.ok && !r.done && r.name.trim().length > 2 && !(r.no && existing.has(r.no)));
+  if (!todo.length) return toast('لا يوجد طلاب للإضافة');
+  I.busy = true; let n = 0;
+  for (const r of todo) {
+    $('#imp-st').textContent = `جارٍ إنشاء الحسابات ${++n} من ${todo.length}…`;
+    const no = r.no || String(Math.floor(1e6 + Math.random() * 9e6)); const pass = genPass();
+    try {
+      const uid = await AUTH.createUser(no + '@' + STU_DOMAIN, pass);
+      await DB.set('users', uid, { name: r.name.trim(), email: no + '@' + STU_DOMAIN, role: 'student', classId: r.classId || I.cls, studentNo: no, active: true, createdAt: now(), createdByTeacher: true });
+      await DB.set('creds', uid, { no, pass, name: r.name.trim(), classId: r.classId || I.cls, createdAt: now() });
+      r.no = no; r.done = true; r.err = '';
+    } catch (e) { console.error(e); r.err = e.code === 'auth/email-already-in-use' ? 'الرقم مستخدم لحساب آخر' : e.code === 'auth/too-many-requests' ? 'تجاوز الحد، أكمل بعد ساعة' : e.code === 'permission-denied' ? 'حدّث قواعد Firestore' : 'تعذر'; if (e.code === 'auth/too-many-requests') break; }
+  }
+  I.busy = false; const ok = todo.filter(r => r.done).length; I.status = `تم إنشاء ${ok} حساب${todo.length - ok ? `، وتعذر ${todo.length - ok}` : ''}. اطبع بطاقات الدخول من صفحة الطلاب.`;
+  await reload(); impRender();
+};
+
+VIEWS.cards = () => {
+  const c = S.p.c || ''; const list = students().filter(u => S.creds?.[u.id] && (!c || u.classId === c)).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  const url = location.origin.startsWith('http') ? location.origin : '';
+  return `<div class="top noprint"><button class="btn ghost" data-a="nav" data-v="students">${ico('back')} رجوع</button><div class="row"><select class="in" style="width:auto" data-c="cardsCls"><option value="">كل الفصول</option>${myClasses().map(x => `<option value="${x.id}" ${x.id === c ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>${prBtn}</div></div>
+  <h1 class="noprint" style="margin-bottom:6px">بطاقات الدخول</h1><p class="muted noprint" style="margin-bottom:16px">${list.length} بطاقة. اطبعها وقصّها ووزعها على الطلاب</p>
+  ${list.length ? `<div class="lcards">${list.map(u => { const k = S.creds[u.id]; return `<div class="lcard"><div class="row sp"><b class="ruqa">منصة لغتي</b><span class="small">${esc(clsName(u.classId))}</span></div><div class="nm">${esc(u.name)}</div><div class="kv"><span>رقم الدخول</span><b dir="ltr">${esc(k.no)}</b></div><div class="kv"><span>كلمة المرور</span><b dir="ltr">${esc(k.pass)}</b></div>${url ? `<div class="small" dir="ltr" style="text-align:center;opacity:.8">${esc(url)}</div>` : ''}</div>`; }).join('')}</div>` : empty('لا توجد بطاقات. أضف الطلاب من زر «إضافة طلاب» لتظهر بطاقاتهم هنا', 'users')}`;
+};
+A.cardsCls = el => go('cards', { c: el.value, from: 'students' });
 
 /* ---------------- demo data (preview mode only) ---------------- */
 async function seedDemo() {

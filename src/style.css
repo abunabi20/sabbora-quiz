@@ -6,18 +6,18 @@ COLOUR and TYPE: أخضر صنوبري سائد، نعناعي داعم، مرج
 LAYOUT: شريط جانبي على الشاشات الكبيرة وشريط سفلي على الجوال، محتوى حتى 1240px
 */
 :root{color-scheme:light dark;
---bg:light-dark(#eef4f1,#0b1513);--bg2:light-dark(#e3ede8,#0f1c1a);
---surface:light-dark(#ffffff,#13211f);--surface2:light-dark(#f4f8f6,#182a27);
---ink:light-dark(#12302b,#e4f0ec);--muted:light-dark(#5b746e,#93aaa4);
---line:light-dark(#d6e3de,#24403b);
---brand:light-dark(#0d6a61,#34bfae);--brand2:light-dark(#0a524b,#5fd6c6);--brandSoft:light-dark(#d9efea,#173a35);
---onbrand:light-dark(#ffffff,#06201d);
---accent:light-dark(#f06b4b,#ff8a6c);--accentSoft:light-dark(#fde5dd,#3a201a);
---gold:light-dark(#e0a22a,#f2c25a);--goldSoft:light-dark(#fbf0d6,#3a2f14);
+--bg:light-dark(#fbf2f6,#170d12);--bg2:light-dark(#f7e4ec,#1d1117);
+--surface:light-dark(#ffffff,#22141b);--surface2:light-dark(#fdf3f7,#2a1922);
+--ink:light-dark(#3b1429,#f7e8ef);--muted:light-dark(#8c5f74,#c7a3b4);
+--line:light-dark(#f1d7e2,#46283a);
+--brand:light-dark(#c2417a,#f283b4);--brand2:light-dark(#a3305f,#f7a3c8);--brandSoft:light-dark(#fce3ee,#4a2035);
+--onbrand:light-dark(#ffffff,#2a0b19);
+--accent:light-dark(#8a5cc9,#b896f0);--accentSoft:light-dark(#efe6fb,#2f2244);
+--gold:light-dark(#e0a22a,#f2c25a);--goldSoft:light-dark(#fcf1d9,#3a2f14);
 --ok:light-dark(#22895c,#4cd391);--okSoft:light-dark(#dcf3e7,#123224);
 --bad:light-dark(#cc4141,#ff7b7b);--badSoft:light-dark(#fbe1e1,#3a1717);
 --warn:light-dark(#b97f00,#f5c44f);--warnSoft:light-dark(#fff1cc,#3a3011);
---sh:0 1px 2px rgba(10,40,35,.06),0 8px 24px rgba(10,40,35,.07);
+--sh:0 1px 2px rgba(80,15,45,.06),0 8px 24px rgba(80,15,45,.08);
 --r:18px;--rs:12px}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
@@ -40,7 +40,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* shell */
 .shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
 .side{position:sticky;top:0;height:100vh;background:var(--brand);color:var(--onbrand);padding:22px 14px;display:flex;flex-direction:column;gap:6px;overflow:auto;
- background-image:radial-gradient(circle at 120% -10%,rgba(255,255,255,.16),transparent 45%),radial-gradient(circle at -30% 110%,rgba(240,107,75,.25),transparent 50%)}
+ background-image:radial-gradient(circle at 120% -10%,rgba(255,255,255,.16),transparent 45%),radial-gradient(circle at -30% 110%,rgba(138,92,201,.3),transparent 50%)}
 .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
 .logo b{font-family:"Reem Kufi";font-size:22px;line-height:1.1}
 .logo small{display:block;opacity:.75;font-size:12.5px;font-family:"Readex Pro"}
@@ -194,7 +194,7 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .rv.warn{border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
 
 /* modal / toast */
-.ov{position:fixed;inset:0;background:rgba(5,25,22,.45);backdrop-filter:blur(4px);z-index:90;display:grid;place-items:center;padding:16px;animation:fade .2s}
+.ov{position:fixed;inset:0;background:rgba(40,8,24,.45);backdrop-filter:blur(4px);z-index:90;display:grid;place-items:center;padding:16px;animation:fade .2s}
 .modal{background:var(--surface);border-radius:24px;padding:24px;width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.25);animation:pop .25s cubic-bezier(.2,.9,.3,1.2)}
 .modal.wide{width:min(900px,100%)}
 @keyframes fade{from{opacity:0}}@keyframes pop{from{transform:scale(.94);opacity:0}}
@@ -205,7 +205,7 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .auth .art{background:var(--brand);color:var(--onbrand);padding:clamp(24px,5vw,60px);display:flex;flex-direction:column;justify-content:space-between;gap:20px;position:relative;overflow:hidden}
 .auth .art h1{font-size:clamp(34px,5vw,52px);line-height:1.05}
 .auth .form{padding:clamp(24px,5vw,60px);display:flex;flex-direction:column;justify-content:center;gap:16px;max-width:520px;width:100%;margin-inline:auto}
-.auth .lugha{background-image:radial-gradient(circle at 85% 12%,rgba(255,217,138,.22),transparent 40%),radial-gradient(circle at 10% 95%,rgba(240,107,75,.22),transparent 45%)}
+.auth .lugha{background-image:radial-gradient(circle at 85% 12%,rgba(255,217,138,.22),transparent 40%),radial-gradient(circle at 10% 95%,rgba(138,92,201,.28),transparent 45%)}
 .auth .kick{font-size:17px;opacity:.85}
 .auth h1.ruq{font-family:"Aref Ruqaa","Reem Kufi",serif;font-weight:700;font-size:clamp(56px,8.5vw,96px);line-height:1.15;text-shadow:0 4px 18px rgba(0,0,0,.18)}
 .auth h1.ruq em{font-style:normal;color:#ffd98a}
@@ -253,9 +253,16 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
  .side,.bnav,.mtop,.noprint,.toast,.top .btn{display:none!important}
  .shell{display:block}.main{padding:0;max-width:none}
  .card,.stat,.item,.qcard{box-shadow:none;break-inside:avoid;border-color:#ccc}
- .print-head{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0d6a61;padding-bottom:10px;margin-bottom:16px}
+ .print-head{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #c2417a;padding-bottom:10px;margin-bottom:16px}
  body.print-cert .main>*:not(.cert-print){display:none!important}
  body.print-cert .cert{box-shadow:none;max-width:none;border-radius:0}
  .ov{position:static;background:none;backdrop-filter:none;padding:0}.ov .modal{box-shadow:none;max-height:none;width:100%;padding:0}
  body.has-modal .shell{display:none}
 }
+.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.lcard{border:2px dashed var(--brand);border-radius:18px;padding:16px;background:linear-gradient(160deg,var(--surface),var(--brandSoft));display:flex;flex-direction:column;gap:8px;break-inside:avoid}
+.lcard .ruqa{font-family:"Aref Ruqaa",serif;font-size:22px;color:var(--brand)}
+.lcard .nm{font-family:"Reem Kufi",sans-serif;font-size:20px;font-weight:700}
+.lcard .kv{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:10px;padding:6px 12px}
+.lcard .kv b{font-size:20px;letter-spacing:1px;font-variant-numeric:tabular-nums}
+@media print{.lcards{grid-template-columns:repeat(2,1fr);gap:8mm}.lcard{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}}

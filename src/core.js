@@ -15,6 +15,11 @@ const FIREBASE_CONFIG = {
 const ADMIN_EMAIL = 'nora141453@gmail.com';
 const LIVE = !!FIREBASE_CONFIG.apiKey;
 const FB_VER = '10.12.2';
+const STU_DOMAIN = 'students.lughati.app';
+const latinDigits = s => String(s ?? '').replace(/[\u0660-\u0669]/g, d => d.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, d => d.charCodeAt(0) - 0x6F0);
+const loginEmail = v => { v = latinDigits(v).trim().toLowerCase(); return v.includes('@') ? v : v.replace(/\s+/g, '') + '@' + STU_DOMAIN; };
+const isStuEmail = e => String(e || '').endsWith('@' + STU_DOMAIN);
+const genPass = () => String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
 
 /* ---------------- utils ---------------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -35,7 +40,7 @@ const fmtDate = t => t ? new Date(t).toLocaleDateString('ar-SA-u-ca-gregory-nu-l
 const fmtDT = t => t ? new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 const ago = t => { const d = (now() - t) / 1000; if (d < 60) return 'الآن'; if (d < 3600) return `قبل ${Math.floor(d / 60)} د`; if (d < 86400) return `قبل ${Math.floor(d / 3600)} س`; return fmtDate(t); };
 const initials = n => String(n || '؟').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join(' ');
-const PALETTE = ['#0d6a61', '#f06b4b', '#e0a22a', '#3d7bd9', '#8a5cc7', '#2e9e6b', '#d14f7c', '#1f8aa0'];
+const PALETTE = ['#c2417a', '#8a5cc9', '#e0a22a', '#3d7bd9', '#8a5cc7', '#2e9e6b', '#d14f7c', '#1f8aa0'];
 const colorOf = s => PALETTE[hashStr(s) % PALETTE.length];
 const grade5 = p => p >= 90 ? ['ممتاز', 'ok'] : p >= 80 ? ['جيد جدًا', 'br'] : p >= 65 ? ['جيد', 'gold'] : p >= 50 ? ['مقبول', 'warn'] : ['يحتاج دعمًا', 'bad'];
 const pctColor = p => p >= 85 ? 'var(--ok)' : p >= 65 ? 'var(--brand)' : p >= 50 ? 'var(--gold)' : 'var(--bad)';
@@ -323,13 +328,14 @@ function makeLocalAuth() {
     async signIn(email, pass) { const acc = store.get('qz_demo_acc', {}); const a = acc[email.toLowerCase()]; if (!a || a.pass !== pass) throw { code: 'auth/invalid-credential' }; store.set('qz_demo_sess', { uid: a.uid, email: email.toLowerCase() }); fire(); },
     async signUp(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; if (pass.length < 6) throw { code: 'auth/weak-password' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); store.set('qz_demo_sess', { uid: acc[e].uid, email: e }); fire(); },
     async signOut() { store.del('qz_demo_sess'); fire(); },
-    async sendVerify() { }, async reset() { }, async reload() { return cur(); }
+    async sendVerify() { }, async reset() { }, async reload() { return cur(); },
+    async createUser(email, pass) { const acc = store.get('qz_demo_acc', {}); const e = email.toLowerCase(); if (acc[e]) throw { code: 'auth/email-already-in-use' }; acc[e] = { uid: rid(12), pass }; store.set('qz_demo_acc', acc); return acc[e].uid; }
   };
 }
 async function makeFirebase() {
   const b = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
   const [ap, au, fs] = await Promise.all([import(b + 'firebase-app.js'), import(b + 'firebase-auth.js'), import(b + 'firebase-firestore.js')]);
-  const app = ap.initializeApp(FIREBASE_CONFIG); const auth = au.getAuth(app); const db = fs.getFirestore(app);
+  let creator; const app = ap.initializeApp(FIREBASE_CONFIG); const auth = au.getAuth(app); const db = fs.getFirestore(app);
   const cl = d => { const v = JSON.parse(JSON.stringify(d)); delete v.id; return v; };
   const q = (c, f) => f?.length ? fs.query(fs.collection(db, c), ...f.map(x => fs.where(...x))) : fs.collection(db, c);
   const map = s => s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -351,7 +357,8 @@ async function makeFirebase() {
     signOut: () => au.signOut(auth),
     sendVerify: () => au.sendEmailVerification(auth.currentUser),
     reset: e => au.sendPasswordResetEmail(auth, e),
-    async reload() { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return U(auth.currentUser); }
+    async reload() { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); return U(auth.currentUser); },
+    async createUser(email, pass) { creator ||= ap.initializeApp(FIREBASE_CONFIG, 'creator'); const a2 = au.getAuth(creator); const c = await au.createUserWithEmailAndPassword(a2, email, pass); const uid = c.user.uid; await au.signOut(a2); return uid; }
   };
 }
 const AUTH_ERR = c => ({
