@@ -11,6 +11,12 @@ service cloud.firestore {
     function isStaff()    { return isAdmin() || isDelegate(); }
     function isStudent()  { return hasProfile() && me().role == 'student' && me().active != false; }
     function quiz(id)     { return get(/databases/$(db)/documents/quizzes/$(id)).data; }
+    // الطالب يختار اسمه من قائمة الفصل، ويُتحقق من رقمه دون كشفه
+    function rosterOk(d) {
+      let r = get(/databases/$(db)/documents/roster/$(d.rosterId)).data;
+      let k = get(/databases/$(db)/documents/rosterKeys/$(d.rosterId)).data;
+      return r.claimedBy == null && r.classId == d.classId && r.name == d.name && (k.no == '' || k.no == d.studentNo);
+    }
 
     match /settings/app { allow read: if signedIn(); allow write: if isAdmin(); }
     match /settings/ai  { allow read, write: if isAdmin(); }
@@ -23,7 +29,8 @@ service cloud.firestore {
       allow create: if (signedIn() && request.auth.uid == uid && (
           (request.resource.data.role == 'student' && request.resource.data.active == true
              && !('delegateClasses' in request.resource.data)
-             && exists(/databases/$(db)/documents/classes/$(request.resource.data.classId)))
+             && exists(/databases/$(db)/documents/classes/$(request.resource.data.classId))
+             && (!('rosterId' in request.resource.data) || rosterOk(request.resource.data)))
        || (request.resource.data.role == 'pending_delegate' && !('delegateClasses' in request.resource.data))
        || (request.resource.data.role == 'admin' && isAdmin())))
        || (isAdmin() && request.resource.data.role == 'student');
@@ -31,6 +38,17 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone']));
       allow delete: if isAdmin();
     }
+
+    // قوائم أسماء الفصول: يقرؤها المسجلون، ويكتبها المدير، ويحجز الطالب اسمه مرة واحدة
+    match /roster/{rid} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+      allow update: if signedIn() && resource.data.claimedBy == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt'])
+        && request.resource.data.claimedBy == request.auth.uid
+        && getAfter(/databases/$(db)/documents/users/$(request.auth.uid)).data.rosterId == rid;
+    }
+    match /rosterKeys/{rid} { allow read, write: if isAdmin(); }
 
     // بيانات دخول الطلاب الذين أنشأ المعلم حساباتهم: لا يراها إلا المدير
     match /creds/{uid} { allow read, write: if isAdmin(); }

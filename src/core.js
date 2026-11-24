@@ -314,6 +314,7 @@ function makeLocal() {
     async add(c, d) { const id = rid(14); await this.set(c, id, d); return id; },
     async update(c, id, p) { if (!C(c)[id]) throw new Error('not found'); const v = clone(p); delete v.id; Object.assign(C(c)[id], v); save(); },
     async del(c, id) { delete C(c)[id]; save(); },
+    async batch(ops) { for (const o of ops) { if (o.op === 'set') await this.set(o.c, o.id, o.d); else if (o.op === 'update') await this.update(o.c, o.id, o.d); else await this.del(o.c, o.id); } },
     async query(c, f = []) { return Object.entries(C(c)).map(([id, d]) => ({ id, ...clone(d) })).filter(d => f.every(x => matchF(d, x))); },
     watch(c, f, cb) { const run = () => this.query(c, f).then(cb); run(); window.addEventListener('qz-change', run); return () => window.removeEventListener('qz-change', run); }
   };
@@ -346,6 +347,7 @@ async function makeFirebase() {
     async update(c, id, p) { await fs.updateDoc(fs.doc(db, c, id), cl(p)); },
     async del(c, id) { await fs.deleteDoc(fs.doc(db, c, id)); },
     async query(c, f) { return map(await fs.getDocs(q(c, f))); },
+    async batch(ops) { for (let i = 0; i < ops.length; i += 450) { const b = fs.writeBatch(db); for (const o of ops.slice(i, i + 450)) { const r = fs.doc(db, o.c, o.id); if (o.op === 'set') b.set(r, cl(o.d)); else if (o.op === 'update') b.update(r, cl(o.d)); else b.delete(r); } await b.commit(); } },
     watch(c, f, cb) { return fs.onSnapshot(q(c, f), s => cb(map(s)), e => console.warn('watch', c, e.code)); }
   };
   const U = u => u ? { uid: u.uid, email: (u.email || '').toLowerCase(), emailVerified: u.emailVerified } : null;

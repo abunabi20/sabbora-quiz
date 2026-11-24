@@ -599,6 +599,7 @@ function makeLocal() {
     async add(c, d) { const id = rid(14); await this.set(c, id, d); return id; },
     async update(c, id, p) { if (!C(c)[id]) throw new Error('not found'); const v = clone(p); delete v.id; Object.assign(C(c)[id], v); save(); },
     async del(c, id) { delete C(c)[id]; save(); },
+    async batch(ops) { for (const o of ops) { if (o.op === 'set') await this.set(o.c, o.id, o.d); else if (o.op === 'update') await this.update(o.c, o.id, o.d); else await this.del(o.c, o.id); } },
     async query(c, f = []) { return Object.entries(C(c)).map(([id, d]) => ({ id, ...clone(d) })).filter(d => f.every(x => matchF(d, x))); },
     watch(c, f, cb) { const run = () => this.query(c, f).then(cb); run(); window.addEventListener('qz-change', run); return () => window.removeEventListener('qz-change', run); }
   };
@@ -631,6 +632,7 @@ async function makeFirebase() {
     async update(c, id, p) { await fs.updateDoc(fs.doc(db, c, id), cl(p)); },
     async del(c, id) { await fs.deleteDoc(fs.doc(db, c, id)); },
     async query(c, f) { return map(await fs.getDocs(q(c, f))); },
+    async batch(ops) { for (let i = 0; i < ops.length; i += 450) { const b = fs.writeBatch(db); for (const o of ops.slice(i, i + 450)) { const r = fs.doc(db, o.c, o.id); if (o.op === 'set') b.set(r, cl(o.d)); else if (o.op === 'update') b.update(r, cl(o.d)); else b.delete(r); } await b.commit(); } },
     watch(c, f, cb) { return fs.onSnapshot(q(c, f), s => cb(map(s)), e => console.warn('watch', c, e.code)); }
   };
   const U = u => u ? { uid: u.uid, email: (u.email || '').toLowerCase(), emailVerified: u.emailVerified } : null;
@@ -795,15 +797,30 @@ function viewGate() {
     form = `<h2>طلبك قيد المراجعة</h2><p class="muted">أرسلنا طلب التفويض للمدير العام. بعد الموافقة وتحديد فصولك ستظهر لك لوحة المعلم.</p><div class="row"><button class="btn" data-a="recheck">تحديث</button><button class="btn ghost" data-a="logout">خروج</button></div>`;
   } else {
     const ac = S.classes;
-    form = `<div><h2>أكمل بياناتك</h2><p class="muted" style="margin-top:6px">مرة واحدة فقط، ليتعرف عليك معلمك</p></div><form class="col" data-f="profile"><label class="f">الاسم الكامل<input class="in" id="p-name" required maxlength="80"></label>
-    <div class="f"><span style="font-weight:500;font-size:14.5px">أنا</span><div class="pick"><label><input type="radio" name="p-role" value="student" checked data-a="roleToggle"><span>طالب</span></label><label><input type="radio" name="p-role" value="pending_delegate" data-a="roleToggle"><span>معلم متعاون (طلب تفويض)</span></label></div></div>
-    <div id="p-st" class="col"><label class="f">الفصل${ac.length ? `<select class="in" id="p-class" required><option value="">اختر فصلك</option>${ac.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>` : `<p class="alert">لم يضف المعلم الفصول بعد، حاول لاحقًا</p>`}</label><label class="f">رقم الطالب أو رقم الهوية (اختياري)<input class="in" id="p-no" maxlength="20" inputmode="numeric"></label></div>
+    form = `<div><h2>أكمل بياناتك</h2><p class="muted" style="margin-top:6px">مرة واحدة فقط، ليتعرف عليك معلمك</p></div><form class="col" data-f="profile">
+    <div class="f"><span style="font-weight:500;font-size:14.5px">أنا</span><div class="pick"><label><input type="radio" name="p-role" value="student" checked data-a="roleToggle"><span>طالب / طالبة</span></label><label><input type="radio" name="p-role" value="pending_delegate" data-a="roleToggle"><span>معلم متعاون (طلب تفويض)</span></label></div></div>
+    <div id="p-st" class="col"><label class="f">الفصل${ac.length ? `<select class="in" id="p-class" data-c="pClass"><option value="">اختر فصلك</option>${ac.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>` : `<p class="alert">لم يضف المعلم الفصول بعد، حاول لاحقًا</p>`}</label><div id="p-rs" class="col"></div></div>
+    <label class="f" id="p-nm" style="display:none">الاسم الكامل<input class="in" id="p-name" maxlength="80"></label>
     <label class="f">رقم الجوال (اختياري)<input class="in" id="p-phone" maxlength="15" inputmode="tel" dir="ltr"></label><p id="p-err" class="small" style="color:var(--bad)"></p><button class="btn" type="submit">حفظ والمتابعة</button></form><button class="btn ghost sm" data-a="logout">خروج</button>`;
   }
   return `<div class="auth">${left}<div class="form">${form}</div></div>`;
 }
 A.authMode = el => { S.authMode = el.dataset.m; render(); };
-A.roleToggle = () => { const st = $('input[name=p-role]:checked').value === 'student'; $('#p-st').style.display = st ? '' : 'none'; };
+A.roleToggle = () => { const st = $('input[name=p-role]:checked').value === 'student'; $('#p-st').style.display = st ? '' : 'none'; $('#p-nm').style.display = st && ($('#p-rid') || !$('#p-class')?.value) ? 'none' : ''; };
+A.pClass = async el => {
+  const box = $('#p-rs'); box.innerHTML = '<p class="small muted">جارٍ تحميل أسماء الفصل…</p>'; S.rosterOpts = [];
+  if (!el.value) { box.innerHTML = ''; $('#p-nm').style.display = 'none'; return; }
+  const list = (await DB.query('roster', [['classId', '==', el.value]]).catch(() => [])).filter(r => !r.claimedBy).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  S.rosterOpts = list;
+  if (list.length) {
+    box.innerHTML = `<label class="f">اختر اسمك من قائمة الفصل<select class="in" id="p-rid" data-c="pRid"><option value="">اختر اسمك</option>${list.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></label><label class="f" id="p-rnol" style="display:none">رقم الطالب للتحقق (كما سجّله المعلم)<input class="in" id="p-rno" maxlength="20" inputmode="numeric" dir="ltr"></label><p class="small muted">اسمك غير موجود؟ راجع معلمك ليضيفه أولًا.</p>`;
+    $('#p-nm').style.display = 'none';
+  } else {
+    box.innerHTML = `<label class="f">رقم الطالب أو رقم الهوية (اختياري)<input class="in" id="p-no" maxlength="20" inputmode="numeric"></label>`;
+    $('#p-nm').style.display = '';
+  }
+};
+A.pRid = el => { const r = (S.rosterOpts || []).find(x => x.id === el.value); $('#p-rnol').style.display = r?.needsNo ? '' : 'none'; };
 A.verified = async () => { try { const u = await AUTH.reload(); S.user = u; if (!u.emailVerified) return toast('لم يتم التأكيد بعد، افتح الرابط من بريدك أولًا'); toast('جارٍ فتح لوحة المعلم…'); await onAuthed(u); } catch (e) { S.fatal = (e.code || '') + ' ' + (e.message || e); render(); } };
 A.resendVerify = () => safe(() => AUTH.sendVerify(), 'تم إرسال الرابط');
 A.recheck = async () => { S.me = await DB.get('users', S.user.uid); if (S.me?.role !== 'pending_delegate') await onAuthed(S.user); else { render(); toast('ما زال الطلب قيد المراجعة'); } };
@@ -816,12 +833,23 @@ async function submitAuth() {
   } catch (x) { err.textContent = AUTH_ERR(x.code); }
 }
 async function submitProfile() {
-  const name = $('#p-name').value.trim(), role = $('input[name=p-role]:checked').value, classId = $('#p-class')?.value || '', err = $('#p-err');
-  if (name.length < 3) return err.textContent = 'اكتب اسمك الكامل';
-  if (role === 'student' && !classId) return err.textContent = 'اختر الفصل';
-  const d = { name, email: S.user.email, role, phone: $('#p-phone').value.trim(), active: true, createdAt: now() };
-  if (role === 'student') Object.assign(d, { classId, studentNo: $('#p-no').value.trim() });
-  await safe(async () => { await DB.set('users', S.user.uid, d); if (role === 'pending_delegate') await DB.add('messages', { from: S.user.uid, fromName: name, to: 'admin', toName: 'المدير', kind: 'msg', subject: 'طلب تفويض جديد', body: `طلب ${name} (${S.user.email}) صلاحية معلم مفوض. راجع صفحة المفوضين.`, createdAt: now(), readBy: [] }); await onAuthed(S.user); });
+  const role = $('input[name=p-role]:checked').value, classId = $('#p-class')?.value || '', err = $('#p-err'); err.textContent = '';
+  const d = { email: S.user.email, role, phone: $('#p-phone').value.trim(), active: true, createdAt: now() };
+  if (role === 'student') {
+    if (!classId) return err.textContent = 'اختر الفصل';
+    const rid = $('#p-rid')?.value;
+    if ($('#p-rid')) {
+      const r = S.rosterOpts.find(x => x.id === rid); if (!r) return err.textContent = 'اختر اسمك من القائمة';
+      const no = latinDigits($('#p-rno')?.value || '').trim(); if (r.needsNo && !no) return err.textContent = 'اكتب رقم الطالب للتحقق';
+      Object.assign(d, { name: r.name, classId, studentNo: r.needsNo ? no : '', rosterId: r.id });
+      try { await DB.batch([{ op: 'set', c: 'users', id: S.user.uid, d }, { op: 'update', c: 'roster', id: r.id, d: { claimedBy: S.user.uid, claimedAt: now() } }]); }
+      catch (e) { console.error(e); return err.textContent = e.code === 'permission-denied' ? 'الرقم لا يطابق الاسم المختار، تأكد منه أو راجع معلمك' : 'تعذر الحفظ، حاول مرة أخرى'; }
+      return onAuthed(S.user);
+    }
+    Object.assign(d, { classId, studentNo: latinDigits($('#p-no')?.value || '').trim() });
+  }
+  d.name = $('#p-name').value.trim(); if (d.name.length < 3) return err.textContent = 'اكتب اسمك الكامل';
+  await safe(async () => { await DB.set('users', S.user.uid, d); if (role === 'pending_delegate') await DB.add('messages', { from: S.user.uid, fromName: d.name, to: 'admin', toName: 'المدير', kind: 'msg', subject: 'طلب تفويض جديد', body: `طلب ${d.name} (${S.user.email}) صلاحية معلم مفوض. راجع صفحة المفوضين.`, createdAt: now(), readBy: [] }); await onAuthed(S.user); });
 }
 document.addEventListener('submit', e => { const f = e.target.dataset.f; if (!f) return; e.preventDefault(); ({ auth: submitAuth, profile: submitProfile, ...FORMS })[f]?.(e.target); });
 const FORMS = {};
@@ -862,7 +890,8 @@ async function loadStaff() {
   if (isAdmin()) [qz, subs, users] = await Promise.all([DB.query('quizzes'), DB.query('submissions'), DB.query('users')]);
   else [qz, subs, users] = await Promise.all([DB.query('quizzes', [['createdBy', '==', S.user.uid]]), DB.query('submissions', [['ownerId', '==', S.user.uid]]), DB.query('users')]);
   S.quizzes = qz.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); S.subs = subs; S.users = users;
-  const [revs, tpl, creds] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : []]);
+  const [revs, tpl, creds, roster] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : [], isAdmin() ? DB.query('roster').catch(() => []) : []]);
+  S.roster = roster;
   S.creds = Object.fromEntries(creds.map(c => [c.id, c]));
   S.reviews = Object.fromEntries(revs.map(r => [r.id, r])); S.templates = tpl;
   const ks = await Promise.all(S.quizzes.map(q => DB.get('quizKeys', q.id).catch(() => null)));
@@ -1169,14 +1198,14 @@ A.subReset = async el => { if (!await ask('السماح بإعادة الاخت�
 VIEWS.students = () => {
   const c = S.p.c || '', qy = (S.p.q || '').trim(); let list = students().filter(u => (!c || u.classId === c) && (!qy || normAr(u.name).includes(normAr(qy)) || (u.studentNo || '').includes(qy)));
   const rows = list.map(u => { const e = studentEvals(u.id); return { u, n: e.length, a: avg(e.map(x => x.ev.pct)) }; }).sort((a, b) => a.u.name.localeCompare(b.u.name, 'ar'));
-  return `<div class="top"><div class="t"><h1>الطلاب</h1><p class="muted">${list.length} طالب${c ? ' في ' + esc(clsName(c)) : ''}</p></div><div class="row">${isAdmin() ? `<button class="btn" data-a="impOpen">${ico('plus')} إضافة طلاب</button><button class="btn ghost" data-a="go" data-v="cards" data-c="${esc(c)}" data-from="students">${ico('print')} بطاقات الدخول</button>` : ''}<button class="btn ghost" data-a="exportStudents">${ico('dl')} تصدير Excel</button></div></div>
-  <div class="row" style="margin-bottom:16px"><input class="in" style="max-width:320px" placeholder="بحث بالاسم أو الرقم" id="st-q" value="${esc(qy)}" data-c="stFilter"><select class="in" style="max-width:260px" id="st-c" data-c="stFilter"><option value="">كل الفصول</option>${myClasses().map(x => `<option value="${x.id}" ${c === x.id ? 'selected' : ''}>${esc(x.name)} (${classStudents(x.id).length})</option>`).join('')}</select></div>
+  return `<div class="top"><div class="t"><h1>الطلاب</h1><p class="muted">${list.length} مسجل${c ? ' في ' + esc(clsName(c)) : ''}</p></div><div class="row">${isAdmin() ? `<button class="btn" data-a="impOpen">${ico('plus')} إضافة طلاب</button>${Object.keys(S.creds || {}).length ? `<button class="btn ghost" data-a="go" data-v="cards" data-c="${esc(c)}" data-from="students">${ico('print')} بطاقات الدخول</button>` : ''}` : ''}<button class="btn ghost" data-a="exportStudents">${ico('dl')} تصدير Excel</button></div></div>
+  ${rosterSection(c)}<div class="row" style="margin-bottom:16px"><input class="in" style="max-width:320px" placeholder="بحث بالاسم أو الرقم" id="st-q" value="${esc(qy)}" data-c="stFilter"><select class="in" style="max-width:260px" id="st-c" data-c="stFilter"><option value="">كل الفصول</option>${myClasses().map(x => `<option value="${x.id}" ${c === x.id ? 'selected' : ''}>${esc(x.name)} (${classStudents(x.id).length})</option>`).join('')}</select></div>
   ${rows.length ? `<div class="card" style="padding:0;overflow:hidden"><table class="stack"><thead><tr><th>الطالب</th><th>الفصل</th><th class="num">الاختبارات</th><th>المتوسط</th><th></th></tr></thead><tbody>${rows.map(({ u, n, a }) => `<tr><td><div class="row" style="gap:10px;flex-wrap:nowrap">${avatar(u.name, 34)}<div><b>${esc(u.name)}</b>${u.active === false ? ' <span class="chip bad">موقوف</span>' : ''}<div class="small muted">${esc(u.studentNo || u.email)}${isStuEmail(u.email) ? ' · أنشأه المعلم' : ''}</div></div></div></td><td>${esc(clsName(u.classId))}</td><td class="num">${n}</td><td>${n ? `<div class="row" style="gap:8px;flex-wrap:nowrap"><div class="bar grow"><i style="width:${a}%;background:${pctColor(a)}"></i></div><b class="small">${r1(a)}%</b></div>` : '<span class="muted small">لم يختبر بعد</span>'}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm soft" data-a="go" data-v="sreport" data-id="${u.id}" data-from="students">${ico('chart')} تقرير</button><button class="btn icon sm ghost" data-a="msgTo" data-id="${u.id}" title="رسالة">${ico('msg')}</button><button class="btn icon sm ghost" data-a="certTo" data-id="${u.id}" title="شهادة">${ico('cert')}</button>${isAdmin() ? `<button class="btn icon sm ghost" data-a="stEdit" data-id="${u.id}" title="تعديل">${ico('edit')}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>` : empty('لا يوجد طلاب. يسجل الطلاب بأنفسهم من صفحة الدخول ويختارون فصولهم', 'users')}`;
 };
 A.stFilter = () => { S.p.q = $('#st-q').value; S.p.c = $('#st-c').value; render(); };
 A.stEdit = el => { const u = userById(el.dataset.id); openModal(`<h2>تعديل بيانات الطالب</h2><form class="col" data-f="stSave" data-id="${u.id}" style="margin-top:14px"><label class="f">الاسم<input class="in" id="se-n" value="${esc(u.name)}" required></label><label class="f">الفصل<select class="in" id="se-c">${S.classes.map(c => `<option value="${c.id}" ${c.id === u.classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><label class="f">رقم الطالب<input class="in" id="se-no" value="${esc(u.studentNo || '')}"></label><label class="f">الجوال<input class="in" id="se-p" value="${esc(u.phone || '')}" dir="ltr"></label>${S.creds?.[u.id] ? `<div class="alert br small">رقم الدخول: <b dir="ltr">${esc(S.creds[u.id].no)}</b> · كلمة المرور: <b dir="ltr">${esc(S.creds[u.id].pass)}</b></div>` : `<p class="small muted" dir="ltr" style="text-align:start">${esc(u.email)}</p>`}<label class="sw"><input type="checkbox" id="se-a" ${u.active !== false ? 'checked' : ''}> الحساب مفعّل</label><div class="row" style="justify-content:space-between;margin-top:8px"><button type="button" class="btn danger" data-a="stDel" data-id="${u.id}">حذف الطالب</button><div class="row"><button type="button" class="btn ghost" data-a="close">إلغاء</button><button class="btn" type="submit">حفظ</button></div></div></form>`); };
 FORMS.stSave = f => safe(async () => { await DB.update('users', f.dataset.id, { name: $('#se-n').value.trim(), classId: $('#se-c').value, studentNo: $('#se-no').value.trim(), phone: $('#se-p').value.trim(), active: $('#se-a').checked }); closeModal(); await reload(); }, 'تم الحفظ');
-A.stDel = async el => { closeModal(); if (!await ask('حذف الطالب؟', 'تُحذف بياناته وتسليماته من المنصة. يبقى حساب الدخول ويمكنه التسجيل من جديد.', 'حذف', true)) return; safe(async () => { for (const s of S.subs.filter(s => s.uid === el.dataset.id)) await DB.del('submissions', s.id); await DB.del('users', el.dataset.id); await DB.del('creds', el.dataset.id).catch(() => { }); await reload(); }, 'تم الحذف'); };
+A.stDel = async el => { closeModal(); if (!await ask('حذف الطالب؟', 'تُحذف بياناته وتسليماته من المنصة. يبقى حساب الدخول ويمكنه التسجيل من جديد.', 'حذف', true)) return; safe(async () => { for (const s of S.subs.filter(s => s.uid === el.dataset.id)) await DB.del('submissions', s.id); const u = userById(el.dataset.id); await DB.del('users', el.dataset.id); await DB.del('creds', el.dataset.id).catch(() => { }); if (u?.rosterId) await DB.update('roster', u.rosterId, { claimedBy: null }).catch(() => { }); await reload(); }, 'تم الحذف'); };
 A.exportStudents = () => { const rows = [['الاسم', 'الفصل', 'رقم الطالب', 'البريد', 'الجوال', 'عدد الاختبارات', 'المتوسط %', ...S.quizzes.filter(q => q.status !== 'draft').map(q => q.title)]]; for (const u of students()) { const e = studentEvals(u.id); rows.push([u.name, clsName(u.classId), u.studentNo || '', u.email, u.phone || '', e.length, r1(avg(e.map(x => x.ev.pct))), ...S.quizzes.filter(q => q.status !== 'draft').map(q => { const x = e.find(y => y.q.id === q.id); return x ? x.ev.total : ''; })]); } downloadCSV('الطلاب-والدرجات', rows); };
 
 /* ---------------- classes ---------------- */
@@ -1514,17 +1543,17 @@ const loadScript = src => new Promise((res, rej) => { if ([...document.scripts].
 A.impOpen = () => { S.imp = { tab: 'paste', cls: S.p.c || myClasses()[0]?.id || '', rows: [], status: '' }; impRender(); };
 function impRender() {
   const I = S.imp; const existing = new Set(students().map(u => u.studentNo).filter(Boolean));
-  const rows = I.rows.map((r, i) => { const dup = r.no && existing.has(r.no); return `<tr><td><input type="checkbox" data-ib="${i}:ok" ${r.ok && !dup ? 'checked' : ''} ${dup ? 'disabled' : ''}></td><td><input class="in" style="min-height:38px" data-ib="${i}:name" value="${esc(r.name)}"></td><td><input class="in" style="min-height:38px;width:130px" dir="ltr" data-ib="${i}:no" value="${esc(r.no)}" placeholder="تلقائي"></td><td><select class="in" style="min-height:38px" data-ib="${i}:classId">${S.classes.map(c => `<option value="${c.id}" ${c.id === (r.classId || I.cls) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></td><td class="small">${dup ? '<span class="chip warn">مسجل مسبقًا</span>' : r.err ? `<span class="chip bad">${esc(r.err)}</span>` : r.done ? '<span class="chip ok">تم</span>' : ''}</td></tr>`; }).join('');
+  const rows = I.rows.map((r, i) => { const dup = false; return `<tr><td><input type="checkbox" data-ib="${i}:ok" ${r.ok && !dup ? 'checked' : ''} ${dup ? 'disabled' : ''}></td><td><input class="in" style="min-height:38px" data-ib="${i}:name" value="${esc(r.name)}"></td><td><input class="in" style="min-height:38px;width:130px" dir="ltr" data-ib="${i}:no" value="${esc(r.no)}" placeholder="اختياري"></td><td><select class="in" style="min-height:38px" data-ib="${i}:classId">${S.classes.map(c => `<option value="${c.id}" ${c.id === (r.classId || I.cls) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></td><td class="small">${dup ? '<span class="chip warn">مسجل مسبقًا</span>' : r.err ? `<span class="chip bad">${esc(r.err)}</span>` : r.done ? '<span class="chip ok">تم</span>' : ''}</td></tr>`; }).join('');
   openModal(`<div class="row sp"><h2>${ico('users', 'style="width:26px;vertical-align:middle"')} إضافة طلاب</h2><button class="btn ghost sm" data-a="close">إغلاق</button></div>
-  <p class="muted small" style="margin:6px 0 14px">ينشئ النظام لكل طالب حسابًا برقم دخول وكلمة مرور، ثم تطبع بطاقاتهم وتوزعها. الطالب يدخل برقمه بدون بريد إلكتروني.</p>
+  <p class="muted small" style="margin:6px 0 14px">تُضاف الأسماء إلى قائمة كل فصل. عند التسجيل يختار الطالب فصله ثم اسمه من القائمة، وإن أضفت رقم الطالب فلن يستطيع غيره اختيار اسمه إلا بكتابة الرقم الصحيح.</p>
   <label class="f" style="max-width:360px">الفصل الافتراضي<select class="in" id="imp-cls" data-c="impCls">${myClasses().map(c => `<option value="${c.id}" ${c.id === I.cls ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
   <div class="tabs" style="margin:14px 0">${[['paste', 'لصق من Excel'], ['file', 'ملف Excel'], ['img', 'صورة قائمة']].map(([k, l]) => `<button class="${I.tab === k ? 'on' : ''}" data-a="impTab" data-t="${k}">${l}</button>`).join('')}</div>
   ${I.tab === 'paste' ? `<textarea class="in" id="imp-txt" style="min-height:150px" placeholder="انسخ عمود الأسماء (ومعه رقم الطالب إن وجد) من Excel والصقه هنا&#10;سارة محمد الدوسري	1120345&#10;لمى عبدالله القحطاني	1120346"></textarea><button class="btn soft" style="margin-top:10px" data-a="impParse">قراءة القائمة</button>`
     : I.tab === 'file' ? `<label class="btn soft" style="cursor:pointer">${ico('dl')} اختر ملف Excel أو CSV<input type="file" hidden accept=".xlsx,.xls,.csv" data-c="impFile"></label><p class="small muted" style="margin-top:8px">يقرأ الورقة الأولى: عمود الاسم، ورقم الطالب إن وجد، والفصل إن وجد</p>`
     : `<label class="btn soft" style="cursor:pointer">${ico('img')} اختر صورة القائمة أو صوّرها<input type="file" hidden accept="image/*" data-c="impImg"></label><p class="small muted" style="margin-top:8px">${S.ai?.key ? 'يقرأ الصورة بالذكاء الاصطناعي (Gemini) بدقة عالية' : 'يقرأ الصورة بقارئ نصوص مجاني. للحصول على دقة أعلى مع الخط اليدوي أضف مفتاح Gemini من الإعدادات'}. راجع الأسماء بعد القراءة.</p>`}
   <p class="small" id="imp-st" style="margin-top:10px;color:var(--brand);font-weight:600">${esc(I.status)}</p>
-  ${I.rows.length ? `<div class="scroll" style="margin-top:6px;max-height:340px;overflow:auto"><table><thead><tr><th></th><th>الاسم</th><th>رقم الدخول</th><th>الفصل</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-  <div class="row sp" style="margin-top:14px"><span class="small muted">${I.rows.filter(r => r.ok && !(r.no && existing.has(r.no)) && !r.done).length} طالب جاهز للإضافة</span><div class="row"><button class="btn ghost" data-a="impAddRow">${ico('plus')} صف</button><button class="btn" data-a="impCreate" ${I.busy ? 'disabled' : ''}>${ico('check')} إنشاء الحسابات</button></div></div>` : ''}`, true);
+  ${I.rows.length ? `<div class="scroll" style="margin-top:6px;max-height:340px;overflow:auto"><table><thead><tr><th></th><th>الاسم</th><th>رقم الطالب (للتحقق)</th><th>الفصل</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="row sp" style="margin-top:14px"><span class="small muted">${I.rows.filter(r => r.ok && !(r.no && existing.has(r.no)) && !r.done).length} طالب جاهز للإضافة</span><div class="row"><button class="btn ghost" data-a="impAddRow">${ico('plus')} صف</button><button class="btn" data-a="impCreate" ${I.busy ? 'disabled' : ''}>${ico('check')} إضافة إلى قائمة الفصل</button></div></div>` : ''}`, true);
 }
 A.impTab = el => { S.imp.tab = el.dataset.t; impRender(); };
 A.impCls = el => { S.imp.cls = el.value; };
@@ -1560,30 +1589,30 @@ A.impImg = async el => {
   } catch (e) { st.textContent = 'تعذرت قراءة الصورة: ' + e.message; }
 };
 A.impCreate = async () => {
-  const I = S.imp; const existing = new Set(students().map(u => u.studentNo).filter(Boolean));
-  const todo = I.rows.filter(r => r.ok && !r.done && r.name.trim().length > 2 && !(r.no && existing.has(r.no)));
-  if (!todo.length) return toast('لا يوجد طلاب للإضافة');
-  I.busy = true; let n = 0;
-  $('#imp-st').textContent = 'التحقق من الصلاحيات…';
-  try {
-    await DB.set('creds', '_check', { t: now() }); await DB.del('creds', '_check');
-    await DB.set('users', '_check', { name: 'فحص', email: '_check@' + STU_DOMAIN, role: 'student', classId: I.cls || S.classes[0]?.id, active: true }); await DB.del('users', '_check');
-  } catch (e) { I.busy = false; I.status = ''; impRender(); $('#imp-st').innerHTML = '<span style="color:var(--bad)">لم يُنشأ أي حساب: قواعد Firestore تحتاج تحديثًا. الصق ملف firestore.rules الجديد في Firebase ثم أعد المحاولة.</span>'; return; }
-  const pend = store.get('qz_pending_pw', {});
+  const I = S.imp; const have = new Set([...(S.roster || []).map(x => x.classId + '|' + normAr(x.name)), ...students().map(u => u.classId + '|' + normAr(u.name))]);
+  const todo = I.rows.filter(r => r.ok && !r.done && r.name.trim().length > 2);
+  if (!todo.length) return toast('لا يوجد أسماء للإضافة');
+  const ops = []; let skip = 0;
   for (const r of todo) {
-    $('#imp-st').textContent = `جارٍ إنشاء الحسابات ${++n} من ${todo.length}…`;
-    const no = r.no || String(Math.floor(1e6 + Math.random() * 9e6)); const pass = pend[no] || genPass(); pend[no] = pass; store.set('qz_pending_pw', pend);
-    try {
-      const uid = await AUTH.createUser(no + '@' + STU_DOMAIN, pass);
-      await DB.set('users', uid, { name: r.name.trim(), email: no + '@' + STU_DOMAIN, role: 'student', classId: r.classId || I.cls, studentNo: no, active: true, createdAt: now(), createdByTeacher: true });
-      await DB.set('creds', uid, { no, pass, name: r.name.trim(), classId: r.classId || I.cls, createdAt: now() });
-      r.no = no; r.done = true; r.err = ''; delete pend[no]; store.set('qz_pending_pw', pend);
-    } catch (e) { console.error(e); r.err = e.code === 'auth/email-already-in-use' ? 'الرقم مستخدم لحساب آخر' : e.code === 'auth/too-many-requests' ? 'تجاوز الحد، أكمل بعد ساعة' : e.code === 'permission-denied' ? 'حدّث قواعد Firestore' : 'تعذر'; if (e.code === 'auth/too-many-requests') break; }
+    const cid = r.classId || I.cls, k = cid + '|' + normAr(r.name);
+    if (have.has(k)) { r.err = 'موجود مسبقًا'; skip++; continue; } have.add(k);
+    const id = rid(16), no = latinDigits(r.no || '').replace(/\D/g, '');
+    ops.push({ op: 'set', c: 'roster', id, d: { name: r.name.trim(), classId: cid, needsNo: !!no, claimedBy: null, createdAt: now() } }, { op: 'set', c: 'rosterKeys', id, d: { no } });
+    r._ok = true;
   }
-  I.busy = false; const ok = todo.filter(r => r.done).length; I.status = ok ? `تم إنشاء ${ok} حساب${todo.length - ok ? `، وتعذر ${todo.length - ok} (السبب بجانب كل اسم)` : ''}. اطبع بطاقات الدخول من صفحة الطلاب.` : `لم يُنشأ أي حساب، السبب مكتوب بجانب كل اسم`;
-  await reload(); impRender();
+  I.busy = true; $('#imp-st').textContent = 'جارٍ الحفظ…';
+  try { if (ops.length) await DB.batch(ops); todo.forEach(r => { if (r._ok) { r.done = true; r.err = ''; } }); I.status = `تمت إضافة ${ops.length / 2} اسم إلى قوائم الفصول${skip ? `، وتجاهلت ${skip} مكرر` : ''}. أرسل رابط المنصة للطلاب ليسجلوا ويختاروا أسماءهم.`; }
+  catch (e) { console.error(e); I.status = e.code === 'permission-denied' ? 'لم يُحفظ شيء: قواعد Firestore تحتاج تحديثًا' : 'تعذر الحفظ، حاول مرة أخرى'; }
+  I.busy = false; await reload(); impRender();
 };
-
+A.rosterDel = async el => { const x = (S.roster || []).find(y => y.id === el.dataset.id); if (!x || !await ask('حذف الاسم من قائمة الفصل؟', esc(x.name), 'حذف', true)) return; safe(async () => { await DB.batch([{ op: 'del', c: 'roster', id: x.id }, { op: 'del', c: 'rosterKeys', id: x.id }]); await reload(); }, 'تم الحذف'); };
+A.rosterEdit = async el => { const x = (S.roster || []).find(y => y.id === el.dataset.id); const k = await DB.get('rosterKeys', x.id); openModal(`<h2>تعديل اسم في القائمة</h2><form class="col" data-f="rosterSave" data-id="${x.id}" style="margin-top:14px"><label class="f">الاسم<input class="in" id="re-n" value="${esc(x.name)}" required></label><label class="f">رقم الطالب للتحقق (اتركه فارغًا لعدم الطلب)<input class="in" id="re-no" value="${esc(k?.no || '')}" dir="ltr" inputmode="numeric"></label><label class="f">الفصل<select class="in" id="re-c">${S.classes.map(c => `<option value="${c.id}" ${c.id === x.classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-a="close">إلغاء</button><button class="btn" type="submit">حفظ</button></div></form>`); };
+FORMS.rosterSave = f => { const no = latinDigits($('#re-no').value).replace(/\D/g, ''); safe(async () => { await DB.batch([{ op: 'update', c: 'roster', id: f.dataset.id, d: { name: $('#re-n').value.trim(), classId: $('#re-c').value, needsNo: !!no } }, { op: 'set', c: 'rosterKeys', id: f.dataset.id, d: { no } }]); closeModal(); await reload(); }, 'تم الحفظ'); };
+function rosterSection(c) {
+  const pend = (S.roster || []).filter(x => !x.claimedBy && (!c || x.classId === c)).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  if (!isAdmin() || !pend.length) return '';
+  return `<div class="card" style="margin-bottom:16px"><div class="row sp"><h3 style="margin:0">في القائمة ولم يسجلوا بعد (${pend.length})</h3><span class="small muted">يظهر الاسم هنا حتى يسجل صاحبه ويختاره</span></div><div class="row" style="margin-top:12px;gap:8px">${pend.map(x => `<span class="chip" style="padding:6px 6px 6px 12px">${esc(x.name)}${c ? '' : ` · ${esc(clsName(x.classId))}`}${x.needsNo ? ico('lock', 'style="width:14px;opacity:.6"') : ''}<button class="btn icon sm ghost" style="min-height:28px;min-width:28px;padding:2px" data-a="rosterEdit" data-id="${x.id}" aria-label="تعديل">${ico('edit')}</button><button class="btn icon sm ghost" style="min-height:28px;min-width:28px;padding:2px" data-a="rosterDel" data-id="${x.id}" aria-label="حذف">${ico('x')}</button></span>`).join('')}</div></div>`;
+}
 VIEWS.cards = () => {
   const c = S.p.c || ''; const list = students().filter(u => S.creds?.[u.id] && (!c || u.classId === c)).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   const url = location.origin.startsWith('http') ? location.origin : '';

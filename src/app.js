@@ -121,15 +121,30 @@ function viewGate() {
     form = `<h2>طلبك قيد المراجعة</h2><p class="muted">أرسلنا طلب التفويض للمدير العام. بعد الموافقة وتحديد فصولك ستظهر لك لوحة المعلم.</p><div class="row"><button class="btn" data-a="recheck">تحديث</button><button class="btn ghost" data-a="logout">خروج</button></div>`;
   } else {
     const ac = S.classes;
-    form = `<div><h2>أكمل بياناتك</h2><p class="muted" style="margin-top:6px">مرة واحدة فقط، ليتعرف عليك معلمك</p></div><form class="col" data-f="profile"><label class="f">الاسم الكامل<input class="in" id="p-name" required maxlength="80"></label>
-    <div class="f"><span style="font-weight:500;font-size:14.5px">أنا</span><div class="pick"><label><input type="radio" name="p-role" value="student" checked data-a="roleToggle"><span>طالب</span></label><label><input type="radio" name="p-role" value="pending_delegate" data-a="roleToggle"><span>معلم متعاون (طلب تفويض)</span></label></div></div>
-    <div id="p-st" class="col"><label class="f">الفصل${ac.length ? `<select class="in" id="p-class" required><option value="">اختر فصلك</option>${ac.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>` : `<p class="alert">لم يضف المعلم الفصول بعد، حاول لاحقًا</p>`}</label><label class="f">رقم الطالب أو رقم الهوية (اختياري)<input class="in" id="p-no" maxlength="20" inputmode="numeric"></label></div>
+    form = `<div><h2>أكمل بياناتك</h2><p class="muted" style="margin-top:6px">مرة واحدة فقط، ليتعرف عليك معلمك</p></div><form class="col" data-f="profile">
+    <div class="f"><span style="font-weight:500;font-size:14.5px">أنا</span><div class="pick"><label><input type="radio" name="p-role" value="student" checked data-a="roleToggle"><span>طالب / طالبة</span></label><label><input type="radio" name="p-role" value="pending_delegate" data-a="roleToggle"><span>معلم متعاون (طلب تفويض)</span></label></div></div>
+    <div id="p-st" class="col"><label class="f">الفصل${ac.length ? `<select class="in" id="p-class" data-c="pClass"><option value="">اختر فصلك</option>${ac.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>` : `<p class="alert">لم يضف المعلم الفصول بعد، حاول لاحقًا</p>`}</label><div id="p-rs" class="col"></div></div>
+    <label class="f" id="p-nm" style="display:none">الاسم الكامل<input class="in" id="p-name" maxlength="80"></label>
     <label class="f">رقم الجوال (اختياري)<input class="in" id="p-phone" maxlength="15" inputmode="tel" dir="ltr"></label><p id="p-err" class="small" style="color:var(--bad)"></p><button class="btn" type="submit">حفظ والمتابعة</button></form><button class="btn ghost sm" data-a="logout">خروج</button>`;
   }
   return `<div class="auth">${left}<div class="form">${form}</div></div>`;
 }
 A.authMode = el => { S.authMode = el.dataset.m; render(); };
-A.roleToggle = () => { const st = $('input[name=p-role]:checked').value === 'student'; $('#p-st').style.display = st ? '' : 'none'; };
+A.roleToggle = () => { const st = $('input[name=p-role]:checked').value === 'student'; $('#p-st').style.display = st ? '' : 'none'; $('#p-nm').style.display = st && ($('#p-rid') || !$('#p-class')?.value) ? 'none' : ''; };
+A.pClass = async el => {
+  const box = $('#p-rs'); box.innerHTML = '<p class="small muted">جارٍ تحميل أسماء الفصل…</p>'; S.rosterOpts = [];
+  if (!el.value) { box.innerHTML = ''; $('#p-nm').style.display = 'none'; return; }
+  const list = (await DB.query('roster', [['classId', '==', el.value]]).catch(() => [])).filter(r => !r.claimedBy).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  S.rosterOpts = list;
+  if (list.length) {
+    box.innerHTML = `<label class="f">اختر اسمك من قائمة الفصل<select class="in" id="p-rid" data-c="pRid"><option value="">اختر اسمك</option>${list.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></label><label class="f" id="p-rnol" style="display:none">رقم الطالب للتحقق (كما سجّله المعلم)<input class="in" id="p-rno" maxlength="20" inputmode="numeric" dir="ltr"></label><p class="small muted">اسمك غير موجود؟ راجع معلمك ليضيفه أولًا.</p>`;
+    $('#p-nm').style.display = 'none';
+  } else {
+    box.innerHTML = `<label class="f">رقم الطالب أو رقم الهوية (اختياري)<input class="in" id="p-no" maxlength="20" inputmode="numeric"></label>`;
+    $('#p-nm').style.display = '';
+  }
+};
+A.pRid = el => { const r = (S.rosterOpts || []).find(x => x.id === el.value); $('#p-rnol').style.display = r?.needsNo ? '' : 'none'; };
 A.verified = async () => { try { const u = await AUTH.reload(); S.user = u; if (!u.emailVerified) return toast('لم يتم التأكيد بعد، افتح الرابط من بريدك أولًا'); toast('جارٍ فتح لوحة المعلم…'); await onAuthed(u); } catch (e) { S.fatal = (e.code || '') + ' ' + (e.message || e); render(); } };
 A.resendVerify = () => safe(() => AUTH.sendVerify(), 'تم إرسال الرابط');
 A.recheck = async () => { S.me = await DB.get('users', S.user.uid); if (S.me?.role !== 'pending_delegate') await onAuthed(S.user); else { render(); toast('ما زال الطلب قيد المراجعة'); } };
@@ -142,12 +157,23 @@ async function submitAuth() {
   } catch (x) { err.textContent = AUTH_ERR(x.code); }
 }
 async function submitProfile() {
-  const name = $('#p-name').value.trim(), role = $('input[name=p-role]:checked').value, classId = $('#p-class')?.value || '', err = $('#p-err');
-  if (name.length < 3) return err.textContent = 'اكتب اسمك الكامل';
-  if (role === 'student' && !classId) return err.textContent = 'اختر الفصل';
-  const d = { name, email: S.user.email, role, phone: $('#p-phone').value.trim(), active: true, createdAt: now() };
-  if (role === 'student') Object.assign(d, { classId, studentNo: $('#p-no').value.trim() });
-  await safe(async () => { await DB.set('users', S.user.uid, d); if (role === 'pending_delegate') await DB.add('messages', { from: S.user.uid, fromName: name, to: 'admin', toName: 'المدير', kind: 'msg', subject: 'طلب تفويض جديد', body: `طلب ${name} (${S.user.email}) صلاحية معلم مفوض. راجع صفحة المفوضين.`, createdAt: now(), readBy: [] }); await onAuthed(S.user); });
+  const role = $('input[name=p-role]:checked').value, classId = $('#p-class')?.value || '', err = $('#p-err'); err.textContent = '';
+  const d = { email: S.user.email, role, phone: $('#p-phone').value.trim(), active: true, createdAt: now() };
+  if (role === 'student') {
+    if (!classId) return err.textContent = 'اختر الفصل';
+    const rid = $('#p-rid')?.value;
+    if ($('#p-rid')) {
+      const r = S.rosterOpts.find(x => x.id === rid); if (!r) return err.textContent = 'اختر اسمك من القائمة';
+      const no = latinDigits($('#p-rno')?.value || '').trim(); if (r.needsNo && !no) return err.textContent = 'اكتب رقم الطالب للتحقق';
+      Object.assign(d, { name: r.name, classId, studentNo: r.needsNo ? no : '', rosterId: r.id });
+      try { await DB.batch([{ op: 'set', c: 'users', id: S.user.uid, d }, { op: 'update', c: 'roster', id: r.id, d: { claimedBy: S.user.uid, claimedAt: now() } }]); }
+      catch (e) { console.error(e); return err.textContent = e.code === 'permission-denied' ? 'الرقم لا يطابق الاسم المختار، تأكد منه أو راجع معلمك' : 'تعذر الحفظ، حاول مرة أخرى'; }
+      return onAuthed(S.user);
+    }
+    Object.assign(d, { classId, studentNo: latinDigits($('#p-no')?.value || '').trim() });
+  }
+  d.name = $('#p-name').value.trim(); if (d.name.length < 3) return err.textContent = 'اكتب اسمك الكامل';
+  await safe(async () => { await DB.set('users', S.user.uid, d); if (role === 'pending_delegate') await DB.add('messages', { from: S.user.uid, fromName: d.name, to: 'admin', toName: 'المدير', kind: 'msg', subject: 'طلب تفويض جديد', body: `طلب ${d.name} (${S.user.email}) صلاحية معلم مفوض. راجع صفحة المفوضين.`, createdAt: now(), readBy: [] }); await onAuthed(S.user); });
 }
 document.addEventListener('submit', e => { const f = e.target.dataset.f; if (!f) return; e.preventDefault(); ({ auth: submitAuth, profile: submitProfile, ...FORMS })[f]?.(e.target); });
 const FORMS = {};
@@ -188,7 +214,8 @@ async function loadStaff() {
   if (isAdmin()) [qz, subs, users] = await Promise.all([DB.query('quizzes'), DB.query('submissions'), DB.query('users')]);
   else [qz, subs, users] = await Promise.all([DB.query('quizzes', [['createdBy', '==', S.user.uid]]), DB.query('submissions', [['ownerId', '==', S.user.uid]]), DB.query('users')]);
   S.quizzes = qz.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); S.subs = subs; S.users = users;
-  const [revs, tpl, creds] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : []]);
+  const [revs, tpl, creds, roster] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : [], isAdmin() ? DB.query('roster').catch(() => []) : []]);
+  S.roster = roster;
   S.creds = Object.fromEntries(creds.map(c => [c.id, c]));
   S.reviews = Object.fromEntries(revs.map(r => [r.id, r])); S.templates = tpl;
   const ks = await Promise.all(S.quizzes.map(q => DB.get('quizKeys', q.id).catch(() => null)));
