@@ -20,6 +20,7 @@ service cloud.firestore {
 
     match /settings/app { allow read: if signedIn(); allow write: if isAdmin(); }
     match /settings/ai  { allow read, write: if isAdmin(); }
+    match /settings/aiStudent { allow read: if signedIn(); allow write: if isAdmin(); }
 
     match /classes/{id}   { allow read: if signedIn(); allow write: if isAdmin(); }
     match /templates/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
@@ -49,6 +50,33 @@ service cloud.firestore {
         && getAfter(/databases/$(db)/documents/users/$(request.auth.uid)).data.rosterId == rid;
     }
     match /rosterKeys/{rid} { allow read, write: if isAdmin(); }
+
+    // مهام الإلقاء
+    match /tasks/{tid} {
+      allow read: if isStaff() || (isStudent() && (('c:' + me().classId) in resource.data.audience || ('u:' + request.auth.uid) in resource.data.audience));
+      allow write: if isAdmin();
+    }
+    match /perf/{pid} {
+      allow read: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isStudent() && request.resource.data.uid == request.auth.uid && pid == request.resource.data.taskId + '_' + request.auth.uid;
+      allow update: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'taskId', 'firstScore', 'firstFillers', 'teacherScore', 'teacherNote']));
+      allow delete: if isAdmin();
+    }
+    // التسجيل الأول لا يُعدل ولا يُحذف، والتسجيل المعتمد يستبدله الطالب عند التحسين
+    function recKindOk(id, d) { return (id.matches('.*_first(_[0-9]+)?$') && d.kind == 'first') || (id.matches('.*_final(_[0-9]+)?$') && d.kind == 'final'); }
+    match /recordings/{rid} {
+      allow read: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && rid.matches('.*_' + request.auth.uid + '_(first|final)$') && recKindOk(rid, request.resource.data);
+      allow update: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.kind == 'final' && request.resource.data.kind == 'final');
+      allow delete: if isAdmin();
+    }
+    match /audio/{cid} {
+      allow read: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && cid.matches('.*_' + request.auth.uid + '_(first|final)_[0-9]+$') && recKindOk(cid, request.resource.data);
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && resource.data.kind == 'final' && request.resource.data.kind == 'final';
+      allow delete: if isAdmin();
+    }
 
     // بيانات دخول الطلاب الذين أنشأ المعلم حساباتهم: لا يراها إلا المدير
     match /creds/{uid} { allow read, write: if isAdmin(); }

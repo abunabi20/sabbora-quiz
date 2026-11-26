@@ -126,6 +126,7 @@ const IC = {
   order: '<path d="M8 6h12M8 12h12M8 18h12M3 5l1-1v4M3 11h2l-2 2h2M3 17h2v3H3"/>',
   numeric: '<path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"/>',
   passage: '<path d="M4 5c3-1 5-1 8 1 3-2 5-2 8-1v14c-3-1-5-1-8 1-3-2-5-2-8-1z"/><path d="M12 6v14"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
   lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   moon: '<path d="M20 15A8 8 0 1 1 9 4a6 6 0 0 0 11 11z"/>',
   wand: '<path d="M4 20L16 8M14 4v2M20 10h-2M18 6l-1 1M12 2l.5 1.5M22 12l-1.5-.5"/>'

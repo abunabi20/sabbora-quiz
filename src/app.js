@@ -80,8 +80,8 @@ const BOOK = `<svg class="big book" viewBox="0 0 350 250" role="img" aria-label=
 /* ---------------- shell ---------------- */
 function navItems() {
   const pend = pendingReviews().length, appr = S.quizzes.filter(q => q.status === 'pending').length, unread = unreadCount();
-  if (S.me.role === 'student') return [['dash', 'home', 'الرئيسية'], ['myres', 'chart', 'نتائجي'], ['msgs', 'msg', 'الرسائل', unread], ['mycerts', 'cert', 'شهاداتي']];
-  const it = [['dash', 'home', 'الرئيسية'], ['quizzes', 'quiz', 'الاختبارات'], ['review', 'review', 'المراجعة', pend], ['reports', 'chart', 'التقارير'], ['students', 'users', 'الطلاب'], ['msgs', 'msg', 'الرسائل', unread]];
+  if (S.me.role === 'student') return [['dash', 'home', 'الرئيسية'], ['myperf', 'mic', 'الإلقاء', (S.tasks || []).filter(t => t.status !== 'closed' && (!myPerf(t.id) || myPerf(t.id).needsRetry)).length], ['myres', 'chart', 'نتائجي'], ['msgs', 'msg', 'الرسائل', unread], ['mycerts', 'cert', 'شهاداتي']];
+  const it = [['dash', 'home', 'الرئيسية'], ['quizzes', 'quiz', 'الاختبارات'], ['review', 'review', 'المراجعة', pend], ['perform', 'mic', 'الإلقاء'], ['reports', 'chart', 'التقارير'], ['students', 'users', 'الطلاب'], ['msgs', 'msg', 'الرسائل', unread]];
   if (isAdmin()) it.splice(2, 0, ['approvals', 'shield', 'الاعتمادات', appr]), it.push(['certs', 'cert', 'الشهادات'], ['classes', 'class', 'الفصول'], ['delegates', 'users', 'المفوضون', S.users.filter(u => u.role === 'pending_delegate').length], ['settings', 'gear', 'الإعدادات']);
   return it;
 }
@@ -217,12 +217,14 @@ async function loadStaff() {
   const [revs, tpl, creds, roster] = await Promise.all([DB.query('reviews').catch(() => []), DB.query('templates').catch(() => []), isAdmin() ? DB.query('creds').catch(() => []) : [], isAdmin() ? DB.query('roster').catch(() => []) : []]);
   S.roster = roster;
   S.creds = Object.fromEntries(creds.map(c => [c.id, c]));
+  [S.tasks, S.perfs] = await Promise.all([DB.query('tasks').catch(() => []), DB.query('perf').catch(() => [])]);
   S.reviews = Object.fromEntries(revs.map(r => [r.id, r])); S.templates = tpl;
   const ks = await Promise.all(S.quizzes.map(q => DB.get('quizKeys', q.id).catch(() => null)));
   S.keys = Object.fromEntries(S.quizzes.map((q, i) => [q.id, ks[i]]));
 }
 async function loadStudent() {
-  const [qz, subs] = await Promise.all([DB.query('quizzes', [['pubClasses', 'array-contains', S.me.classId]]), DB.query('submissions', [['uid', '==', S.user.uid]])]);
+  const [qz, subs, tA, tB, pf] = await Promise.all([DB.query('quizzes', [['pubClasses', 'array-contains', S.me.classId]]), DB.query('submissions', [['uid', '==', S.user.uid]]), DB.query('tasks', [['audience', 'array-contains', 'c:' + S.me.classId]]).catch(() => []), DB.query('tasks', [['audience', 'array-contains', 'u:' + S.user.uid]]).catch(() => []), DB.query('perf', [['uid', '==', S.user.uid]]).catch(() => [])]);
+  S.tasks = [...new Map([...tA, ...tB].map(t => [t.id, t])).values()]; S.perfs = pf;
   S.quizzes = qz.sort((a, b) => (b.publishedAt || b.createdAt || 0) - (a.publishedAt || a.createdAt || 0)); S.subs = subs;
   const revs = await Promise.all(subs.map(s => DB.get('reviews', s.id).catch(() => null)));
   S.reviews = Object.fromEntries(subs.map((s, i) => [s.id, revs[i]]).filter(x => x[1]));

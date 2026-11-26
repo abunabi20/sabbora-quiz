@@ -266,3 +266,10 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .lcard .kv{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:10px;padding:6px 12px}
 .lcard .kv b{font-size:20px;letter-spacing:1px;font-variant-numeric:tabular-nums}
 @media print{.lcards{grid-template-columns:repeat(2,1fr);gap:8mm}.lcard{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+.micbtn{width:120px;height:120px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,var(--brand2),var(--brand));color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 0 10px var(--brandSoft),0 16px 40px rgba(160,40,90,.35);transition:transform .15s}
+.micbtn:hover{transform:scale(1.05)}.micbtn svg{width:50px;height:50px}
+.recdot{width:22px;height:22px;border-radius:50%;background:var(--bad);animation:pulse 1s infinite}
+.meter{display:flex;align-items:flex-end;gap:4px;height:56px}.meter i{width:7px;height:6px;border-radius:4px;background:var(--brand);transition:height .1s}
+.spinner{width:54px;height:54px;border-radius:50%;border:5px solid var(--brandSoft);border-top-color:var(--brand);margin:0 auto;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
