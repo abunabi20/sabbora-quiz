@@ -1905,63 +1905,131 @@ function wavB64(pcm) {
   for (let i = 0; i < pcm.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
   let s = ''; const u = new Uint8Array(b); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return 'data:audio/wav;base64,' + btoa(s);
 }
-/* acoustic analysis: speech ratio, pauses, sustained "aaa" hesitations, loudness */
+/* acoustic analysis: thinking pauses, sustained "أأأ / إممم" fillers, part-word stutters, loudness */
 function analyzePCM(pcm) {
-  const fr = 480, n = Math.floor(pcm.length / fr), rms = [], zcr = [];
-  for (let i = 0; i < n; i++) { let e = 0, z = 0; for (let j = 0; j < fr; j++) { const x = pcm[i * fr + j]; e += x * x; if (j && (x >= 0) !== (pcm[i * fr + j - 1] >= 0)) z++; } rms.push(Math.sqrt(e / fr)); zcr.push(z / fr); }
+  const fr = 480, n = Math.floor(pcm.length / fr), rms = [], zcr = [], f0 = [];
+  for (let i = 0; i < n; i++) {
+    let e = 0, z = 0; const o = i * fr;
+    for (let j = 0; j < fr; j++) { const x = pcm[o + j]; e += x * x; if (j && (x >= 0) !== (pcm[o + j - 1] >= 0)) z++; }
+    rms.push(Math.sqrt(e / fr)); zcr.push(z / fr);
+    let best = 0, lag = 0; if (e > 1e-6) for (let L = 40; L <= 213; L++) { let c = 0; for (let j = 0; j + L < fr; j++) c += pcm[o + j] * pcm[o + j + L]; c /= e; if (c > best) { best = c; lag = L; } }
+    f0.push(best > .45 ? 16000 / lag : 0);
+  }
   const sorted = [...rms].sort((a, b) => a - b), floor = sorted[Math.floor(n * .1)] || 0, peak = sorted[Math.floor(n * .95)] || .01;
   const th = Math.max(floor * 2.5, peak * .12, .008), voiced = rms.map(r => r > th);
-  let first = voiced.indexOf(true), last = voiced.lastIndexOf(true); if (first < 0) return { dur: pcm.length / 16000, speech: 0, ratio: 0, pauses: 0, longPauses: 0, hesitations: 0, loud: 0, steady: 0 };
-  let pauses = 0, longP = 0, run = 0, hes = 0, seg = [];
-  for (let i = first; i <= last; i++) {
-    if (!voiced[i]) { run++; if (seg.length) { if (seg.length >= 13 && seg.length <= 90) { const zs = seg.map(k => zcr[k]), es = seg.map(k => rms[k]); const zm = avg(zs), zsd = stdev(zs), em = avg(es), esd = stdev(es); if (zsd < .012 && esd / em < .28 && zm < .09) hes++; } seg = []; } }
-    else { if (run >= 23) { pauses++; if (run >= 67) longP++; } run = 0; seg.push(i); }
+  const first = voiced.indexOf(true), last = voiced.lastIndexOf(true);
+  const zero = { dur: pcm.length / 16000, speech: 0, ratio: 0, pauses: 0, longPauses: 0, hesitations: 0, stutters: 0, loud: 0, steady: 0, pauseList: [] };
+  if (first < 0) return zero;
+  // voiced segments
+  const segs = []; let s = -1;
+  for (let i = first; i <= last + 1; i++) { if (i <= last && voiced[i]) { if (s < 0) s = i; } else if (s >= 0) { segs.push([s, i - 1]); s = -1; } }
+  // merge tiny gaps (< 90ms) inside words
+  const m = []; for (const g of segs) { const p = m[m.length - 1]; if (p && g[0] - p[1] <= 3) p[1] = g[1]; else m.push([...g]); }
+  let pauses = 0, longP = 0; const pauseList = [];
+  for (let k = 1; k < m.length; k++) { const gap = m[k][0] - m[k - 1][1] - 1; if (gap >= 20) { pauses++; pauseList.push(+(gap * .03).toFixed(1)); if (gap >= 67) longP++; } }
+  // sustained filler: a long run of steady pitch and low zero-crossing (open vowel), e.g. "أأأأ" or "إممم"
+  let hes = 0;
+  for (const [a, b] of m) {
+    let run = 0;
+    for (let i = a + 1; i <= b + 1; i++) {
+      const ok = i <= b && f0[i] > 70 && f0[i - 1] > 70 && Math.abs(f0[i] - f0[i - 1]) / f0[i] < .06 && zcr[i] < .1 && Math.abs(rms[i] - rms[i - 1]) / (rms[i] + 1e-6) < .35;
+      if (ok) run++; else { const len = run + 1, isolated = (b - a + 1) <= len + 8; if (len >= 20 || (len >= 12 && isolated)) hes++; run = 0; }
+    }
   }
-  const sp = voiced.filter(Boolean).length; const vr = rms.filter((r, i) => voiced[i]);
-  return { dur: pcm.length / 16000, speech: sp * .03, ratio: sp / Math.max(1, last - first + 1), pauses, longPauses: longP, hesitations: hes, loud: avg(vr), steady: 1 - Math.min(1, stdev(vr) / (avg(vr) || 1)) };
+  // part-word stutter: two or more very short bursts (< 210ms) with short gaps before a longer segment, e.g. "تـ تـ تسكن"
+  let stut = 0;
+  for (let k = 0; k < m.length - 2; k++) {
+    const len = x => x[1] - x[0] + 1, gap = (x, y) => y[0] - x[1] - 1;
+    if (len(m[k]) <= 7 && len(m[k + 1]) <= 7 && gap(m[k], m[k + 1]) <= 12 && gap(m[k + 1], m[k + 2]) <= 12) { stut++; k += 2; }
+  }
+  const sp = voiced.filter(Boolean).length, vr = rms.filter((r, i) => voiced[i]);
+  return { dur: pcm.length / 16000, speech: sp * .03, ratio: sp / Math.max(1, last - first + 1), pauses, longPauses: longP, hesitations: hes, stutters: stut, loud: avg(vr), steady: 1 - Math.min(1, stdev(vr) / (avg(vr) || 1)), pauseList };
 }
-const FILLER_RE = /^(ا+ه+|آ+ه*|ا+م+|ام+|م{2,}|ها+|ايه+|اه+|يعني)$/;
+const FILLER_RE = /^(ا+ه*|آ+ه*|ا+م+|ام+|م{2,}|ها+|ايه+|اه+|يعني|امم+|ءء+)$/;
+const SELF_FIX = /^(عفوا|عفوًا|اقصد|اسف|اسفه|لا|اعيد|عذرا)$/;
+/* word alignment between the required passage and what was heard */
+function alignText(passage, heard) {
+  const P = normAr(passage).split(' ').filter(Boolean), H = normAr(heard).split(' ').filter(Boolean);
+  const eq = (a, b) => a === b || stem(a) === stem(b) || (Math.max(a.length, b.length) > 3 && levR(a, b) >= .75);
+  const n = P.length, k = H.length, D = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(0));
+  for (let i = 0; i <= n; i++) D[i][0] = i; for (let j = 0; j <= k; j++) D[0][j] = j;
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= k; j++) D[i][j] = Math.min(D[i - 1][j] + 1, D[i][j - 1] + 1, D[i - 1][j - 1] + (eq(P[i - 1], H[j - 1]) ? 0 : 1));
+  const ops = []; let i = n, j = k;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && D[i][j] === D[i - 1][j - 1] + (eq(P[i - 1], H[j - 1]) ? 0 : 1)) { ops.push(eq(P[i - 1], H[j - 1]) ? ['ok', P[i - 1], H[j - 1]] : ['sub', P[i - 1], H[j - 1]]); i--; j--; }
+    else if (j > 0 && D[i][j] === D[i][j - 1] + 1) { ops.push(['ins', null, H[j - 1]]); j--; }
+    else { ops.push(['del', P[i - 1], null]); i--; }
+  }
+  ops.reverse();
+  // trailing deletions = stopped early
+  let tail = 0; for (let x = ops.length - 1; x >= 0 && ops[x][0] === 'del'; x--) tail++;
+  const body = ops.slice(0, ops.length - tail);
+  const out = { matched: 0, inserted: [], omitted: [], repeated: [], substituted: [], selfFix: 0, fillers: 0, readWords: n - tail, total: n };
+  body.forEach((o, x) => {
+    if (o[0] === 'ok') out.matched++;
+    else if (o[0] === 'sub') out.substituted.push([o[1], o[2]]);
+    else if (o[0] === 'del') out.omitted.push(o[1]);
+    else { const w = o[2], prev = body[x - 1]?.[2], next = body[x + 1]?.[2] || body[x + 1]?.[1];
+      if (FILLER_RE.test(w)) out.fillers++; else if (SELF_FIX.test(w)) out.selfFix++; else if (prev && eq(w, prev) || next && eq(w, next)) out.repeated.push(w); else out.inserted.push(w); }
+  });
+  out.coverage = n ? (n - tail) / n : 1; out.accuracy = out.readWords ? out.matched / out.readWords : 0;
+  return out;
+}
 function localEval(m, task, transcript) {
   const words = transcript ? normAr(transcript).split(' ').filter(Boolean) : [];
-  const fillWords = words.filter(w => FILLER_RE.test(w)).length;
-  const fillers = Math.max(m.hesitations, fillWords); const mins = Math.max(.25, m.speech / 60);
-  const wpm = words.length ? Math.round((words.length - fillWords) / mins) : 0;
-  const c = (x) => Math.round(Math.max(20, Math.min(100, x)));
-  const fluency = c(100 - fillers * 7 - m.longPauses * 8 - m.pauses * 1.5 + (m.ratio - .6) * 40);
-  const confidence = c(55 + m.steady * 35 + Math.min(15, m.loud * 300) - m.longPauses * 4);
-  const expression = c(60 + m.steady * 15 + (m.ratio > .55 ? 15 : 0) - fillers * 3);
-  const durOk = task.duration ? Math.min(1, m.dur / (task.duration * .5)) : Math.min(1, m.speech / 20);
-  const pronunciation = c(70 + (wpm > 60 && wpm < 170 ? 10 : 0) - fillers * 2);
-  const language = c(72 - fillWords * 2);
-  const k = task.mode === 'passage' ? 'accuracy' : 'content';
-  const criteria = { pronunciation, fluency, expression, language, confidence, [k]: c(65 * durOk + 20) };
-  const score = Math.round(avg(Object.values(criteria)) * (.6 + .4 * durOk));
-  if (m.speech < 1) return { score: 10, criteria: Object.fromEntries(Object.keys(criteria).map(x => [x, 10])), fillers: 0, wpm: 0, words: 0, transcript: '', studentNote: 'لم أسمع صوتك بوضوح. تأكد من السماح للميكروفون، وقرّب الجهاز منك، ثم أعد المحاولة.', teacherNote: 'لم يُلتقط كلام واضح في التسجيل.', source: 'local', metrics: m };
-  const tips = [];
-  if (fillers >= 3) tips.push(`لاحظت ${fillers} مرات تردد مثل «آآآ» أو «إممم». خذ نفسًا قصيرًا بدلها.`);
-  if (m.longPauses) tips.push(`توقفت ${m.longPauses} مرة لأكثر من ثانيتين، حاول الاستمرار بانسيابية.`);
-  if (durOk < 1) tips.push('التسجيل قصير، أكمل الإلقاء حتى النهاية.');
-  if (m.steady < .45) tips.push('حافظ على مستوى صوت ثابت وواضح.');
+  const al = task.mode === 'passage' && task.passage && words.length ? alignText(task.passage, transcript) : null;
+  const fillWords = al ? al.fillers : words.filter(w => FILLER_RE.test(w)).length;
+  const fillers = m.hesitations + fillWords, stutters = m.stutters || 0;
+  const reps = al ? al.repeated.length : words.filter((w, i) => i && w === words[i - 1]).length;
+  const mins = Math.max(.2, m.speech / 60), wpm = words.length ? Math.round(words.length / Math.max(.25, m.dur / 60)) : 0;
+  const punct = task.mode === 'passage' ? (String(task.passage).match(/[،,.؛;:!؟?]/g) || []).length * (al ? al.coverage : 1) : m.dur / 8;
+  const thinkPauses = Math.max(0, m.pauses - Math.round(punct));
+  const c = x => Math.round(Math.max(10, Math.min(100, x)));
+  const fluency = c(100 - fillers * 7 - stutters * 7 - reps * 6 - thinkPauses * 5 - m.longPauses * 8 - (al ? al.selfFix * 4 : 0) - (wpm && wpm < 70 ? (70 - wpm) * .6 : 0));
+  const confidence = c(50 + m.steady * 35 + Math.min(15, m.loud * 300) - m.longPauses * 5 - fillers * 2);
+  const expression = c(68 + m.steady * 12 - fillers * 3 - thinkPauses * 2 - (wpm && wpm < 60 ? 10 : 0));
+  const pronunciation = c(al ? 100 - al.substituted.length * 6 - stutters * 3 : 72 - stutters * 4);
+  const language = c(al ? 95 - al.inserted.length * 5 - al.substituted.length * 3 : 72 - fillWords * 2);
+  let criteria, cover = 1;
+  if (al) { cover = al.coverage; criteria = { pronunciation, fluency, expression, language, confidence, accuracy: c(al.accuracy * 100 * (.5 + .5 * cover) - al.omitted.length * 4) }; }
+  else { cover = task.duration ? Math.min(1, m.dur / (task.duration * .5)) : Math.min(1, m.speech / 20); criteria = { pronunciation, fluency, expression, language, confidence, content: c(65 * cover + 20) }; }
+  const score = Math.round(avg(Object.values(criteria)) * (.55 + .45 * Math.min(1, cover)));
+  const q = s => `«${s}»`, tips = [];
+  if (fillers) tips.push(`سُمع منك ${fillers} مرة صوت تفكير مثل «أأأ» أو «إممم»، خذ نفسًا هادئًا بدلًا منه.`);
+  if (stutters) tips.push(`تكررت بداية بعض الكلمات (تأتأة) ${stutters} مرة، اقرأ أبطأ قليلًا.`);
+  if (thinkPauses) tips.push(`توقفت للتفكير ${thinkPauses} مرة في غير مواضع الوقف.`);
+  if (al?.repeated.length) tips.push(`كررت: ${al.repeated.slice(0, 4).map(q).join('، ')}.`);
+  if (al?.inserted.length) tips.push(`أضفت كلمات ليست في النص: ${al.inserted.slice(0, 4).map(q).join('، ')}.`);
+  if (al?.selfFix) tips.push(`صحّحت نفسك أثناء القراءة ${al.selfFix} مرة.`);
+  if (al?.substituted.length) tips.push(`قرأت ${al.substituted.slice(0, 3).map(([a, b]) => `${q(b)} بدل ${q(a)}`).join('، ')}.`);
+  if (al?.omitted.length) tips.push(`تجاوزت: ${al.omitted.slice(0, 4).map(q).join('، ')}.`);
+  if (cover < .9) tips.push(al ? `قرأت ${Math.round(cover * 100)}% من النص فقط، أكمله حتى النهاية.` : 'التسجيل قصير، أكمل الإلقاء حتى النهاية.');
+  if (wpm && wpm < 60) tips.push('سرعتك بطيئة، حاول القراءة بانسيابية أكثر.');
   if (!tips.length) tips.push('إلقاء واثق ومنساب، أحسنت!');
-  return { score, criteria, fillers, wpm, words: words.length, transcript: transcript || '', studentNote: tips.join(' '), teacherNote: `تقييم آلي تقريبي من تحليل الصوت: مدة الكلام ${Math.round(m.speech)} ث، توقفات ${m.pauses} (طويلة ${m.longPauses})، تردد مقدّر ${fillers}${wpm ? `، سرعة ${wpm} كلمة/دقيقة` : ''}.`, source: 'local', metrics: m };
+  return { score, criteria, fillers, stutters, repetitions: reps, wpm, words: words.length, transcript: transcript || '', studentNote: tips.join(' '), details: al ? { inserted: al.inserted, repeated: al.repeated, omitted: al.omitted, substituted: al.substituted, selfFix: al.selfFix, coverage: Math.round(cover * 100) } : null, pauses: thinkPauses, teacherNote: `تقييم آلي داخل المتصفح (بدون ذكاء اصطناعي): تردد ${fillers}، تأتأة ${stutters}، تكرار ${reps}، توقفات تفكير ${thinkPauses} (أطول من ثانيتين: ${m.longPauses})${al ? `، إضافات ${al.inserted.length}، أخطاء قراءة ${al.substituted.length}، حذف ${al.omitted.length}، نسبة ما قُرئ ${Math.round(cover * 100)}%` : ''}${wpm ? `، السرعة ${wpm} كلمة/دقيقة` : ''}. ملاحظة: كشف «أأأ» والتأتأة صوتيًا تقريبي، ولتقييم دقيق أضف مفتاح Gemini.`, source: 'local', metrics: m };
 }
 async function aiEval(wav, task, key, model) {
   const ctx = task.mode === 'passage' ? `النص المطلوب إلقاؤه:\n${task.passage}` : `الطالب يلقي قطعة أو تعبيرًا من اختياره${task.topicHint ? ` (${task.topicHint})` : ''}.`;
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || 'gemini-2.5-flash')}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `أنت معلمة لغة عربية خبيرة في تقييم الإلقاء والقراءة الجهرية، عادلة ومشجعة. استمع لتسجيل الطالب وقيّمه بدقة.
 المهمة: ${task.title}. ${task.instructions || ''}
 ${ctx}
-عدّ بدقة الأصوات الحشوية والتردد مثل (آآآ، أأأ، إممم، ممم، هااا) وتكرار الكلمات. ${task.mode === 'passage' ? 'قارن بالنص وحدد الكلمات المحذوفة أو الخاطئة.' : 'قيّم ترابط الأفكار ووضوحها.'}
+قيّم بصرامة وعدل، وانتبه خصوصًا لما يلي واذكره بالتفصيل:
+1) أصوات التفكير والتردد مثل (أأأ، آآ، إممم، ممم، هااا) حتى لو كانت قصيرة أو بين الكلمات، وعدّها كلها.
+2) التأتأة وتكرار المقاطع أو بدايات الكلمات (مثل: تـ تـ تسكن).
+3) فجوات التفكير: الصمت الذي يزيد عن نصف ثانية في غير مواضع الوقف وعلامات الترقيم، مع توقيتها.
+4) ${task.mode === 'passage' ? 'قارن بالنص كلمة بكلمة: الكلمات المضافة التي ليست في النص، والمحذوفة، والمقروءة خطأ، والمكررة، والتصحيح الذاتي (مثل: عفوًا)، وهل أكمل النص حتى نهايته.' : 'ترابط الأفكار ووضوحها والكلمات الحشوية والتكرار.'}
+خصم الطلاقة: كل صوت تفكير أو تأتأة أو فجوة تفكير يخفض الطلاقة 5 إلى 8 درجات. ولا تعط الطلاقة أكثر من 70 إذا وُجدت 3 مشكلات أو أكثر.
 أعد JSON فقط بهذا الشكل:
-{"transcript":"نص ما قاله","fillers":0,"fillerExamples":["آآآ"],"repetitions":0,"wordsPerMinute":0,"criteria":{"pronunciation":0,"fluency":0,"expression":0,"language":0,"confidence":0,"${task.mode === 'passage' ? 'accuracy' : 'content'}":0},"score":0,"verdict":"ممتاز|جيد جدًا|جيد|متوسط|ضعيف","studentNote":"ملاحظة للطالب بالعربية: نقطة قوة ثم ما يحسنه بالتحديد في جملتين أو ثلاث، بأسلوب مشجع","teacherNote":"ملاحظة تشخيصية مختصرة للمعلمة"}
+{"transcript":"اكتب ما قاله حرفيًا بما في ذلك أأأ وإممم والتكرار","fillers":0,"fillerExamples":["أأأ"],"stutters":0,"stutterExamples":["تـ تـ تسكن"],"thinkingPauses":0,"pauseTimes":["0:12"],"repetitions":0,"inserted":["كلمة مضافة"],"omitted":["كلمة محذوفة"],"substituted":[["الصحيح","المقروء"]],"selfCorrections":0,"coverage":100,"wordsPerMinute":0,"criteria":{"pronunciation":0,"fluency":0,"expression":0,"language":0,"confidence":0,"${task.mode === 'passage' ? 'accuracy' : 'content'}":0},"score":0,"verdict":"ممتاز|جيد جدًا|جيد|متوسط|ضعيف","studentNote":"ملاحظة للطالب بالعربية: نقطة قوة ثم ما يحسنه بالتحديد مع أمثلة مما قاله، بأسلوب مشجع في 3 جمل","teacherNote":"ملاحظة تشخيصية مختصرة للمعلمة تذكر الأعداد والأمثلة"}
 كل الدرجات من 100.` }, { inline_data: { mime_type: 'audio/wav', data: wav.split(',')[1] } }] }], generationConfig: { responseMimeType: 'application/json', temperature: .2 } }) });
   const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || 'Gemini');
   const o = JSON.parse(j.candidates[0].content.parts[0].text);
-  return { score: Math.round(+o.score || 0), criteria: o.criteria || {}, fillers: +o.fillers || 0, fillerExamples: o.fillerExamples || [], repetitions: +o.repetitions || 0, wpm: +o.wordsPerMinute || 0, transcript: o.transcript || '', verdict: o.verdict || '', studentNote: o.studentNote || '', teacherNote: o.teacherNote || '', source: 'ai' };
+  return { score: Math.round(+o.score || 0), criteria: o.criteria || {}, fillers: +o.fillers || 0, fillerExamples: o.fillerExamples || [], stutters: +o.stutters || 0, repetitions: +o.repetitions || 0, pauses: +o.thinkingPauses || 0, wpm: +o.wordsPerMinute || 0, transcript: o.transcript || '', verdict: o.verdict || '', studentNote: o.studentNote || '', teacherNote: o.teacherNote || '', details: { inserted: o.inserted || [], omitted: o.omitted || [], substituted: o.substituted || [], repeated: o.stutterExamples || [], selfFix: +o.selfCorrections || 0, coverage: o.coverage ?? null, pauseTimes: o.pauseTimes || [] }, source: 'ai' };
 }
 async function evaluateRecording(blob, task, transcript) {
   const buf = await decodeBlob(blob); const pcm = await toMono16k(buf); const m = analyzePCM(pcm);
   let k = S.aiStu; if (k === undefined) { k = S.aiStu = isAdmin() ? (await DB.get('settings', 'ai').catch(() => null)) : (await DB.get('settings', 'aiStudent').catch(() => null)); }
-  if (k?.key && m.speech > 1) { try { const r = await aiEval(wavB64(pcm), task, k.key, k.model); r.metrics = m; if (!r.fillers && m.hesitations > 2) r.fillers = m.hesitations; return r; } catch (e) { console.warn('AI eval failed', e); } }
+  if (k?.key && m.speech > 1) { try { const r = await aiEval(wavB64(pcm), task, k.key, k.model); r.metrics = m; return r; } catch (e) { console.warn('AI eval failed', e); } }
   return localEval(m, task, transcript);
 }
 /* store audio in Firestore chunks (works on the free plan) */
@@ -2040,13 +2108,23 @@ VIEWS.taskres = () => {
   <div class="grid g4">${stat(`${done.length}/${rows.length}`, 'أنجزوا')}${stat(r1(avg(first)) + '%', 'متوسط أول محاولة', 'var(--accent)')}${stat(r1(avg(fin)) + '%', 'متوسط بعد التحسين', 'var(--ok)')}${stat(done.filter(r => (r.p.finalScore ?? r.p.firstScore) >= t.target).length, 'حققوا الهدف', 'var(--gold)')}</div>
   <div class="card" style="padding:0;overflow:hidden"><table class="stack"><thead><tr><th>الطالب</th><th class="num">الأولى</th><th class="num">الأخيرة</th><th class="num">المحاولات</th><th class="num">التردد</th><th>الحالة</th><th></th></tr></thead><tbody>${rows.map(({ u, p }) => { const [l, c] = perfStatus(t, p); return `<tr><td><b>${esc(u.name)}</b><div class="small muted">${esc(clsName(u.classId))}</div></td><td class="num">${p?.firstScore ?? '-'}${p?.firstScore != null ? '%' : ''}</td><td class="num">${p?.finalScore != null ? p.finalScore + '%' : '-'}</td><td class="num">${p?.attempts || 0}</td><td class="num">${p?.firstFillers ?? '-'}${p?.finalFillers != null ? ' ← ' + p.finalFillers : ''}</td><td><span class="chip ${c}">${l}</span></td><td class="noprint">${p ? `<button class="btn sm soft" data-a="perfDetail" data-id="${p.id}">استماع ومقارنة</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div></div>`;
 };
+function detailsHTML(r) {
+  const d = r.details || {}; const q = x => `<span class="chip">${esc(x)}</span>`; const rows = [];
+  rows.push(`<div class="row" style="gap:6px"><span class="chip ${r.fillers ? 'warn' : 'ok'}">أصوات تفكير (أأأ/إممم): ${r.fillers || 0}</span><span class="chip ${r.stutters ? 'warn' : 'ok'}">تأتأة: ${r.stutters || 0}</span><span class="chip ${r.pauses ? 'warn' : 'ok'}">فجوات تفكير: ${r.pauses || 0}</span><span class="chip ${r.repetitions ? 'warn' : 'ok'}">تكرار: ${r.repetitions || 0}</span>${d.coverage != null ? `<span class="chip ${d.coverage < 90 ? 'bad' : 'ok'}">ما قُرئ من النص: ${d.coverage}%</span>` : ''}</div>`);
+  if (d.inserted?.length) rows.push(`<div class="small"><b>كلمات مضافة:</b> ${d.inserted.map(q).join(' ')}</div>`);
+  if (d.repeated?.length) rows.push(`<div class="small"><b>مكرر:</b> ${d.repeated.map(q).join(' ')}</div>`);
+  if (d.substituted?.length) rows.push(`<div class="small"><b>قراءة خاطئة:</b> ${d.substituted.map(([a, b]) => `<span class="chip">${esc(b)} ← ${esc(a)}</span>`).join(' ')}</div>`);
+  if (d.omitted?.length) rows.push(`<div class="small"><b>محذوف:</b> ${d.omitted.slice(0, 12).map(q).join(' ')}${d.omitted.length > 12 ? ' …' : ''}</div>`);
+  if (d.pauseTimes?.length) rows.push(`<div class="small"><b>مواضع التوقف:</b> ${d.pauseTimes.map(q).join(' ')}</div>`);
+  return `<div class="col" style="gap:8px">${rows.join('')}</div>`;
+}
 const critBars = (a, b) => Object.keys(CRIT).filter(k => a?.[k] != null || b?.[k] != null).map(k => `<div class="hrow" style="grid-template-columns:minmax(90px,150px) minmax(0,1fr) 84px"><span>${CRIT[k]}</span><div class="col" style="gap:3px"><div class="bar"><i style="width:${a?.[k] || 0}%;background:${b ? 'var(--accent)' : pctColor(a?.[k] || 0)}"></i></div>${b ? `<div class="bar"><i style="width:${b[k] || 0}%;background:${pctColor(b[k] || 0)}"></i></div>` : ''}</div><b class="small" style="text-align:end">${a?.[k] ?? '-'}${b ? ' ← ' + (b[k] ?? '-') : ''}</b></div>`).join('');
 A.perfDetail = async el => {
   const p = S.perfs.find(x => x.id === el.dataset.id); const t = S.tasks.find(x => x.id === p.taskId);
   openModal(`<p class="muted">جارٍ تحميل التسجيلات…</p>`, true);
   const [f, l] = await Promise.all([loadAudio(p.id + '_first'), p.finalScore != null ? loadAudio(p.id + '_final') : null]);
   const a = f?.rec?.result, b = l?.rec?.result;
-  const box = (title, r, x) => `<div class="card flat col" style="gap:8px"><div class="row sp"><b>${title}</b>${x ? `<span class="chip ${grade5(x.score)[1]}">${x.score}%</span>` : ''}</div>${r ? `<audio controls preload="none" src="${esc(r.url)}" style="width:100%"></audio>` : '<p class="small muted">لا يوجد</p>'}${x ? `<div class="small">التردد (آآآ/إممم): <b>${x.fillers}</b>${x.wpm ? ` · السرعة: <b>${x.wpm}</b> كلمة/دقيقة` : ''}${x.source === 'local' ? ' · <span class="muted">تقييم تقريبي</span>' : ''}</div><p class="small" style="background:var(--surface2);padding:10px;border-radius:12px">${esc(x.teacherNote || x.studentNote)}</p>${x.transcript ? `<details><summary class="small" style="cursor:pointer">النص المسموع</summary><p class="small" style="white-space:pre-wrap">${esc(x.transcript)}</p></details>` : ''}` : ''}</div>`;
+  const box = (title, r, x) => `<div class="card flat col" style="gap:8px"><div class="row sp"><b>${title}</b>${x ? `<span class="chip ${grade5(x.score)[1]}">${x.score}%</span>` : ''}</div>${r ? `<audio controls preload="none" src="${esc(r.url)}" style="width:100%"></audio>` : '<p class="small muted">لا يوجد</p>'}${x ? `${detailsHTML(x)}<div class="small">${x.wpm ? `السرعة: <b>${x.wpm}</b> كلمة/دقيقة · ` : ''}${x.source === 'local' ? '<span class="muted">تقييم تقريبي داخل المتصفح</span>' : '<span style="color:var(--ok)">تقييم بالذكاء الاصطناعي</span>'}</div><p class="small" style="background:var(--surface2);padding:10px;border-radius:12px">${esc(x.teacherNote || x.studentNote)}</p>${x.transcript ? `<details><summary class="small" style="cursor:pointer">النص المسموع</summary><p class="small" style="white-space:pre-wrap">${esc(x.transcript)}</p></details>` : ''}` : ''}</div>`;
   openModal(`<div class="row sp"><div><h2>${esc(p.name)}</h2><p class="small muted">${esc(t.title)} · ${p.attempts} محاولة · ${perfStatus(t, p)[0]}</p></div><button class="btn ghost sm" data-a="close">إغلاق</button></div>
   <div class="grid g2" style="margin-top:14px">${box('التسجيل الأول', f, a)}${box(`التسجيل المعتمد (المحاولة ${p.finalAttempt || '-'})`, l, b)}</div>
   ${a ? `<div class="card flat" style="margin-top:12px"><h3>المقارنة حسب المعايير</h3><p class="small muted" style="margin-bottom:6px">البنفسجي: الأول، والملون: الأخير</p>${critBars(a.criteria, b?.criteria)}</div>` : ''}
@@ -2081,7 +2159,8 @@ VIEWS.perf = () => {
   if (R.phase === 'rec') body = `<div class="center col" style="align-items:center;gap:14px;padding:20px 0"><div class="recdot"></div><b class="disp" style="font-size:44px" id="rec-t">${t.duration ? fmtSec(t.duration) : '0:00'}</b><div class="meter" id="rec-m">${'<i></i>'.repeat(24)}</div><p class="small muted">${t.duration ? 'الوقت المتبقي' : 'مدة التسجيل'}</p><button class="btn danger" data-a="recStop">${ico('x')} إنهاء التسجيل</button></div>`;
   else if (R.phase === 'eval') body = `<div class="center" style="padding:30px 0"><div class="spinner"></div><p style="margin-top:14px">جارٍ الاستماع لإلقائك وتقييمه…</p></div>`;
   else if (R.phase === 'result') { const r = R.result, isFirst = R.n === 1; const pass = r.score >= t.target, need = mustImprove(t, r.score), below = r.score < RETRY_FLOOR;
-    body = `<div class="col" style="gap:14px"><div class="row" style="justify-content:center;gap:24px"><div class="ring" style="width:170px">${ringSVG(r.score)}<div class="v"><b style="color:${pctColor(r.score)};font-size:40px">${r.score}%</b><span class="small muted">${r.verdict || grade5(r.score)[0]}</span></div></div><div class="col" style="gap:6px"><span class="chip ${r.fillers > 3 ? 'warn' : 'ok'}">التردد (آآآ / إممم): ${r.fillers}</span>${r.wpm ? `<span class="chip">السرعة: ${r.wpm} كلمة/دقيقة</span>` : ''}<span class="chip br">المحاولة ${R.n}</span></div></div>
+    body = `<div class="col" style="gap:14px"><div class="row" style="justify-content:center;gap:24px"><div class="ring" style="width:170px">${ringSVG(r.score)}<div class="v"><b style="color:${pctColor(r.score)};font-size:40px">${r.score}%</b><span class="small muted">${r.verdict || grade5(r.score)[0]}</span></div></div><div class="col" style="gap:6px">${r.wpm ? `<span class="chip">السرعة: ${r.wpm} كلمة/دقيقة</span>` : ''}<span class="chip br">المحاولة ${R.n}</span>${r.source === 'local' ? '<span class="chip">تقييم تقريبي</span>' : ''}</div></div>
+    ${detailsHTML(r)}
     <audio controls src="${esc(R.url)}" style="width:100%"></audio>
     <div class="alert ${pass ? 'br' : need || below ? 'acc' : ''}" style="align-items:flex-start">${ico('spark', 'style="width:22px;flex:none"')}<span>${esc(r.studentNote)}</span></div>
     <div class="card flat">${critBars(r.criteria)}</div>
