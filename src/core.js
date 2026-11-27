@@ -143,7 +143,8 @@ const QT = {
   match: { n: 'توصيل', d: 'صِل كل عنصر بما يناسبه', auto: true },
   order: { n: 'ترتيب', d: 'رتّب العناصر بالتسلسل الصحيح', auto: true },
   numeric: { n: 'إجابة رقمية', d: 'رقم مع هامش تسامح', auto: true },
-  passage: { n: 'نص قرائي', d: 'فقرة أو قطعة تسبق مجموعة أسئلة', auto: true }
+  passage: { n: 'نص قرائي', d: 'فقرة أو قطعة تسبق مجموعة أسئلة', auto: true },
+  photo: { n: 'حل بخط اليد', d: 'الطالب يحل على ورقة ويرفع صورة الحل، وتقيّمه أنت', auto: false }
 };
 
 /* split editor question into public part + key part */
@@ -157,6 +158,7 @@ function splitQ(q) {
       break;
     case 'tf': key.correct = q.correct === 'false' ? 'false' : 'true'; break;
     case 'short': key.accepted = (q.accepted || []).map(s => s.trim()).filter(Boolean); key.keywords = (q.keywords || []).map(s => s.trim()).filter(Boolean); break;
+    case 'photo': key.model = q.model || ''; break;
     case 'essay': key.model = q.model || ''; key.keywords = (q.keywords || []).map(s => s.trim()).filter(Boolean); pub.minWords = +q.minWords || 0; break;
     case 'fill': {
       const parts = [], blanks = []; const re = /\[\[(.+?)\]\]/g; let last = 0, m;
@@ -183,6 +185,7 @@ function joinQ(p, k = {}) {
     case 'tf': q.correct = k.correct || 'true'; break;
     case 'short': q.accepted = k.accepted?.length ? [...k.accepted] : ['']; q.keywords = k.keywords || []; break;
     case 'essay': q.model = k.model || ''; q.keywords = k.keywords || []; break;
+    case 'photo': q.model = k.model || ''; break;
     case 'fill': q.text = k.source || p.text; break;
     case 'match': q.pairs = p.left.map(l => ({ id: l.id, l: l.t, r: p.right.find(r => r.id === k.pairs?.[l.id])?.t || '' })); q.extra = p.right.filter(r => r.id.startsWith('x')).map(r => r.t); break;
     case 'order': q.items = (k.order || p.items.map(i => i.id)).map(id => p.items.find(i => i.id === id)).filter(Boolean).map(i => ({ ...i })); break;
@@ -197,6 +200,7 @@ function newQ(type) {
   if (type === 'tf') q.correct = 'true';
   if (type === 'short') { q.accepted = ['']; q.keywords = []; }
   if (type === 'essay') { q.model = ''; q.keywords = []; q.minWords = 0; }
+  if (type === 'photo') { q.model = ''; q.points = 5; }
   if (type === 'match') { q.pairs = [0, 1, 2].map(() => ({ id: rid(4), l: '', r: '' })); q.extra = []; }
   if (type === 'order') q.items = [0, 1, 2, 3].map(() => ({ id: rid(4), t: '' }));
   if (type === 'numeric') { q.value = 0; q.tol = 0; q.unit = ''; }
@@ -212,6 +216,7 @@ function grade(q, k, a) {
   const empty = a == null || a === '' || (Array.isArray(a) && !a.length) || (typeof a === 'object' && !Array.isArray(a) && !Object.values(a).some(v => String(v ?? '').trim()));
   if (empty && q.type !== 'order') return R(0, 'wrong', 1, { empty: true });
   switch (q.type) {
+    case 'photo': return R(0, 'review', 0, { suggest: null });
     case 'mcq': return a === k.correct ? R(1, 'correct') : R(0, 'wrong');
     case 'tf': return String(a) === String(k.correct) ? R(1, 'correct') : R(0, 'wrong');
     case 'multi': {
@@ -244,6 +249,7 @@ function evalSub(quiz, key, sub, rev) {
   const items = []; let total = 0, max = 0, pending = 0;
   for (const q of quiz.questions || []) {
     if (q.type === 'passage') continue;
+    if (sub.drawn && !sub.drawn.includes(q.id)) continue;
     const g = grade(q, key?.answers?.[q.id], sub.answers?.[q.id]); const ov = rev?.overrides?.[q.id];
     let it = { qid: q.id, q, ans: sub.answers?.[q.id], ...g };
     if (ov) { it.score = +ov.points; it.status = ov.points >= g.max ? 'correct' : ov.points <= 0 ? 'wrong' : 'partial'; it.reviewed = true; it.note = ov.note || ''; }
@@ -258,6 +264,7 @@ const ansText = (q, a) => {
     case 'mcq': return q.choices?.find(c => c.id === a)?.t || '—';
     case 'multi': return (a || []).map(id => q.choices?.find(c => c.id === id)?.t).filter(Boolean).join('، ') || '—';
     case 'tf': return a === 'true' ? 'صح' : 'خطأ';
+    case 'photo': return 'صورة الحل المرفقة';
     case 'fill': return (a || []).map(x => x || '…').join(' | ');
     case 'match': return q.left.map(l => `${l.t} ← ${q.right.find(r => r.id === a?.[l.id])?.t || '…'}`).join('، ');
     case 'order': return (a || []).map(id => q.items.find(i => i.id === id)?.t).join(' ← ');
@@ -272,6 +279,7 @@ const keyText = (q, k) => {
     case 'tf': return k.correct === 'true' ? 'صح' : 'خطأ';
     case 'short': return (k.accepted || []).join(' / ') + (k.keywords?.length ? ` (كلمات مفتاحية: ${k.keywords.join('، ')})` : '');
     case 'essay': return k.model || (k.keywords || []).join('، ');
+    case 'photo': return k.model || 'يقيّمه المعلم';
     case 'fill': return (k.blanks || []).map(b => b.join(' / ')).join(' | ');
     case 'match': return q.left.map(l => `${l.t} ← ${q.right.find(r => r.id === k.pairs?.[l.id])?.t}`).join('، ');
     case 'order': return (k.order || []).map(id => q.items.find(i => i.id === id)?.t).join(' ← ');

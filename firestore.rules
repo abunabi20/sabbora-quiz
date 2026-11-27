@@ -106,7 +106,8 @@ service cloud.firestore {
         || (isDelegate() && quiz(qid).createdBy == request.auth.uid)
         || (isStudent()
             && exists(/databases/$(db)/documents/submissions/$(qid + '_' + request.auth.uid))
-            && (quiz(qid).resultsMode != 'manual' || quiz(qid).released == true));
+            && (quiz(qid).resultsMode == 'instant' || quiz(qid).released == true
+                || (quiz(qid).resultsMode == 'afterDue' && quiz(qid).dueAt > 0 && request.time.toMillis() > quiz(qid).dueAt)));
       allow write: if isAdmin() || (isDelegate()
         && quiz(qid).createdBy == request.auth.uid
         && quiz(qid).status in ['draft', 'pending', 'rejected']);
@@ -124,7 +125,8 @@ service cloud.firestore {
         && quiz(request.resource.data.quizId).status == 'published'
         && me().classId in quiz(request.resource.data.quizId).pubClasses
         && request.resource.data.ownerId == quiz(request.resource.data.quizId).createdBy
-        && (quiz(request.resource.data.quizId).dueAt == 0 || request.time.toMillis() < quiz(request.resource.data.quizId).dueAt + 300000);
+        && (quiz(request.resource.data.quizId).dueAt == 0 || request.time.toMillis() < quiz(request.resource.data.quizId).dueAt + 300000)
+        && (!('openAt' in quiz(request.resource.data.quizId)) || quiz(request.resource.data.quizId).openAt == 0 || request.time.toMillis() >= quiz(request.resource.data.quizId).openAt);
       allow update: if false;
       allow delete: if isAdmin();
     }

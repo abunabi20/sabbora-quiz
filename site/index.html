@@ -284,6 +284,15 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .meter{display:flex;align-items:flex-end;gap:4px;height:56px}.meter i{width:7px;height:6px;border-radius:4px;background:var(--brand);transition:height .1s}
 .spinner{width:54px;height:54px;border-radius:50%;border:5px solid var(--brandSoft);border-top-color:var(--brand);margin:0 auto;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+.nocopy,.nocopy *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.nocopy input,.nocopy textarea{-webkit-user-select:text;user-select:text}
+.qtimer{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:var(--brandSoft);color:var(--brand);font-weight:600;margin-bottom:14px}
+.qtimer b{font-variant-numeric:tabular-nums;font-size:18px;min-width:28px;text-align:center}
+.qtimer.low{background:var(--badSoft);color:var(--bad)}.qtimer.low .bar i{background:var(--bad)}
+.qtimer .bar i{transition:width .5s linear}
+.qtimg{max-width:100%;height:auto;display:block;pointer-events:none}
+.opt .qtimg{display:inline-block}
 </style>
 </head>
 <body>
@@ -435,7 +444,8 @@ const QT = {
   match: { n: 'توصيل', d: 'صِل كل عنصر بما يناسبه', auto: true },
   order: { n: 'ترتيب', d: 'رتّب العناصر بالتسلسل الصحيح', auto: true },
   numeric: { n: 'إجابة رقمية', d: 'رقم مع هامش تسامح', auto: true },
-  passage: { n: 'نص قرائي', d: 'فقرة أو قطعة تسبق مجموعة أسئلة', auto: true }
+  passage: { n: 'نص قرائي', d: 'فقرة أو قطعة تسبق مجموعة أسئلة', auto: true },
+  photo: { n: 'حل بخط اليد', d: 'الطالب يحل على ورقة ويرفع صورة الحل، وتقيّمه أنت', auto: false }
 };
 
 /* split editor question into public part + key part */
@@ -449,6 +459,7 @@ function splitQ(q) {
       break;
     case 'tf': key.correct = q.correct === 'false' ? 'false' : 'true'; break;
     case 'short': key.accepted = (q.accepted || []).map(s => s.trim()).filter(Boolean); key.keywords = (q.keywords || []).map(s => s.trim()).filter(Boolean); break;
+    case 'photo': key.model = q.model || ''; break;
     case 'essay': key.model = q.model || ''; key.keywords = (q.keywords || []).map(s => s.trim()).filter(Boolean); pub.minWords = +q.minWords || 0; break;
     case 'fill': {
       const parts = [], blanks = []; const re = /\[\[(.+?)\]\]/g; let last = 0, m;
@@ -475,6 +486,7 @@ function joinQ(p, k = {}) {
     case 'tf': q.correct = k.correct || 'true'; break;
     case 'short': q.accepted = k.accepted?.length ? [...k.accepted] : ['']; q.keywords = k.keywords || []; break;
     case 'essay': q.model = k.model || ''; q.keywords = k.keywords || []; break;
+    case 'photo': q.model = k.model || ''; break;
     case 'fill': q.text = k.source || p.text; break;
     case 'match': q.pairs = p.left.map(l => ({ id: l.id, l: l.t, r: p.right.find(r => r.id === k.pairs?.[l.id])?.t || '' })); q.extra = p.right.filter(r => r.id.startsWith('x')).map(r => r.t); break;
     case 'order': q.items = (k.order || p.items.map(i => i.id)).map(id => p.items.find(i => i.id === id)).filter(Boolean).map(i => ({ ...i })); break;
@@ -489,6 +501,7 @@ function newQ(type) {
   if (type === 'tf') q.correct = 'true';
   if (type === 'short') { q.accepted = ['']; q.keywords = []; }
   if (type === 'essay') { q.model = ''; q.keywords = []; q.minWords = 0; }
+  if (type === 'photo') { q.model = ''; q.points = 5; }
   if (type === 'match') { q.pairs = [0, 1, 2].map(() => ({ id: rid(4), l: '', r: '' })); q.extra = []; }
   if (type === 'order') q.items = [0, 1, 2, 3].map(() => ({ id: rid(4), t: '' }));
   if (type === 'numeric') { q.value = 0; q.tol = 0; q.unit = ''; }
@@ -504,6 +517,7 @@ function grade(q, k, a) {
   const empty = a == null || a === '' || (Array.isArray(a) && !a.length) || (typeof a === 'object' && !Array.isArray(a) && !Object.values(a).some(v => String(v ?? '').trim()));
   if (empty && q.type !== 'order') return R(0, 'wrong', 1, { empty: true });
   switch (q.type) {
+    case 'photo': return R(0, 'review', 0, { suggest: null });
     case 'mcq': return a === k.correct ? R(1, 'correct') : R(0, 'wrong');
     case 'tf': return String(a) === String(k.correct) ? R(1, 'correct') : R(0, 'wrong');
     case 'multi': {
@@ -536,6 +550,7 @@ function evalSub(quiz, key, sub, rev) {
   const items = []; let total = 0, max = 0, pending = 0;
   for (const q of quiz.questions || []) {
     if (q.type === 'passage') continue;
+    if (sub.drawn && !sub.drawn.includes(q.id)) continue;
     const g = grade(q, key?.answers?.[q.id], sub.answers?.[q.id]); const ov = rev?.overrides?.[q.id];
     let it = { qid: q.id, q, ans: sub.answers?.[q.id], ...g };
     if (ov) { it.score = +ov.points; it.status = ov.points >= g.max ? 'correct' : ov.points <= 0 ? 'wrong' : 'partial'; it.reviewed = true; it.note = ov.note || ''; }
@@ -550,6 +565,7 @@ const ansText = (q, a) => {
     case 'mcq': return q.choices?.find(c => c.id === a)?.t || '—';
     case 'multi': return (a || []).map(id => q.choices?.find(c => c.id === id)?.t).filter(Boolean).join('، ') || '—';
     case 'tf': return a === 'true' ? 'صح' : 'خطأ';
+    case 'photo': return 'صورة الحل المرفقة';
     case 'fill': return (a || []).map(x => x || '…').join(' | ');
     case 'match': return q.left.map(l => `${l.t} ← ${q.right.find(r => r.id === a?.[l.id])?.t || '…'}`).join('، ');
     case 'order': return (a || []).map(id => q.items.find(i => i.id === id)?.t).join(' ← ');
@@ -564,6 +580,7 @@ const keyText = (q, k) => {
     case 'tf': return k.correct === 'true' ? 'صح' : 'خطأ';
     case 'short': return (k.accepted || []).join(' / ') + (k.keywords?.length ? ` (كلمات مفتاحية: ${k.keywords.join('، ')})` : '');
     case 'essay': return k.model || (k.keywords || []).join('، ');
+    case 'photo': return k.model || 'يقيّمه المعلم';
     case 'fill': return (k.blanks || []).map(b => b.join(' / ')).join(' | ');
     case 'match': return q.left.map(l => `${l.t} ← ${q.right.find(r => r.id === k.pairs?.[l.id])?.t}`).join('، ');
     case 'order': return (k.order || []).map(id => q.items.find(i => i.id === id)?.t).join(' ← ');
@@ -912,7 +929,7 @@ async function loadStudent() {
   S.quizzes = qz.sort((a, b) => (b.publishedAt || b.createdAt || 0) - (a.publishedAt || a.createdAt || 0)); S.subs = subs;
   const revs = await Promise.all(subs.map(s => DB.get('reviews', s.id).catch(() => null)));
   S.reviews = Object.fromEntries(subs.map((s, i) => [s.id, revs[i]]).filter(x => x[1]));
-  const ks = await Promise.all(subs.map(s => { const q = quizById(s.quizId); return q && (q.resultsMode !== 'manual' || q.released) ? DB.get('quizKeys', s.quizId).catch(() => null) : null; }));
+  const ks = await Promise.all(subs.map(s => { const q = quizById(s.quizId); return q && (q.resultsMode === 'instant' || !q.resultsMode || q.released || (q.resultsMode === 'afterDue' && q.dueAt && q.dueAt < now())) ? DB.get('quizKeys', s.quizId).catch(() => null) : null; }));
   S.keys = Object.fromEntries(subs.map((s, i) => [s.quizId, ks[i]]));
 }
 function startWatch() {
@@ -1022,21 +1039,35 @@ A.releaseQuiz = async el => { if (!await ask('إعلان النتائج للطل
 A.delQuiz = async el => { const q = quizById(el.dataset.id); const n = S.subs.filter(s => s.quizId === q.id).length; if (!await ask('حذف الاختبار؟', `«${esc(q.title)}»${n ? ` ومعه ${n} تسليم` : ''}. لا يمكن التراجع.`, 'حذف', true)) return; safe(async () => { if (isAdmin()) for (const s of S.subs.filter(s => s.quizId === q.id)) { await DB.del('submissions', s.id); await DB.del('reviews', s.id).catch(() => { }); } await DB.del('quizKeys', q.id).catch(() => { }); await DB.del('quizzes', q.id); await reload(); }, 'تم الحذف'); };
 A.dupQuiz = el => { const q = quizById(el.dataset.id); const k = S.keys[q.id]; S.ed = edFrom(q, k); S.ed.id = null; S.ed.title += ' (نسخة)'; S.ed.dirty = true; S.ed.qs.forEach(x => { x.id = rid(6); }); go('editor'); };
 A.editQuiz = el => { const q = quizById(el.dataset.id); S.ed = edFrom(q, S.keys[q.id]); go('editor'); };
-A.newQuiz = () => { if (!myClasses().length) return toast(isAdmin() ? 'أضف فصلًا أولًا من صفحة الفصول' : 'لم يحدد لك المدير فصولًا بعد'); S.ed = { id: null, title: '', desc: '', classIds: myClasses().length === 1 ? [myClasses()[0].id] : [], duration: 0, dueAt: 0, resultsMode: 'instant', showAnswers: true, shuffle: false, qs: [], dirty: false }; go('editor'); };
-function edFrom(q, k) { return { id: q.id, title: q.title, desc: q.desc || '', classIds: [...(q.classIds || [])], duration: q.duration || 0, dueAt: q.dueAt || 0, resultsMode: q.resultsMode || 'instant', showAnswers: q.showAnswers !== false, shuffle: !!q.shuffle, status: q.status, createdBy: q.createdBy, createdByName: q.createdByName, qs: (q.questions || []).map(p => joinQ(p, k?.answers?.[p.id])), dirty: false }; }
+A.newQuiz = () => { if (!myClasses().length) return toast(isAdmin() ? 'أضف فصلًا أولًا من صفحة الفصول' : 'لم يحدد لك المدير فصولًا بعد'); S.ed = { id: null, title: '', desc: '', classIds: myClasses().length === 1 ? [myClasses()[0].id] : [], duration: 0, dueAt: 0, resultsMode: 'instant', showAnswers: true, shuffle: false, openAt: 0, integrity: { drawCount: 0, noBack: false, qTime: 0, trackFocus: false, maxLeaves: 0, noCopy: false, asImage: false, similarity: true, fullscreen: false }, qs: [], dirty: false }; go('editor'); };
+function edFrom(q, k) { return { id: q.id, title: q.title, desc: q.desc || '', classIds: [...(q.classIds || [])], duration: q.duration || 0, dueAt: q.dueAt || 0, resultsMode: q.resultsMode || 'instant', showAnswers: q.showAnswers !== false, shuffle: !!q.shuffle, openAt: q.openAt || 0, integrity: { ...{ drawCount: 0, noBack: false, qTime: 0, trackFocus: false, maxLeaves: 0, noCopy: false, asImage: false, similarity: true, fullscreen: false }, ...(q.integrity || {}) }, status: q.status, createdBy: q.createdBy, createdByName: q.createdByName, qs: (q.questions || []).map(p => joinQ(p, k?.answers?.[p.id])), dirty: false }; }
 
 /* ---------------- editor ---------------- */
 VIEWS.editor = () => {
   const E = S.ed; if (!E) return VIEWS.quizzes();
   const dt = E.dueAt ? new Date(E.dueAt - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : '';
+  const ot = E.openAt ? new Date(E.openAt - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : ''; const G = E.integrity; const nQ = E.qs.filter(q => q.type !== 'passage').length;
   const tot = sum(E.qs.map(q => q.type === 'passage' ? 0 : +q.points || 0));
   return `<div class="top"><div class="t"><h1>${E.id ? 'تعديل الاختبار' : 'اختبار جديد'}</h1><p class="muted">${E.qs.filter(q => q.type !== 'passage').length} سؤال · ${tot} درجة</p></div><div class="row"><button class="btn ghost" data-a="nav" data-v="quizzes">${ico('back')} رجوع</button><button class="btn ghost" data-a="edPreview">${ico('eye')} معاينة</button></div></div>
   <div class="col" style="gap:18px">
   <section class="card"><div class="grid g2"><label class="f">عنوان الاختبار<input class="in" data-b="s:title" value="${esc(E.title)}" placeholder="مثال: اختبار الوحدة الثالثة"></label><label class="f">وصف أو تعليمات (اختياري)<input class="in" data-b="s:desc" value="${esc(E.desc)}" placeholder="اقرأ كل سؤال بعناية"></label></div>
   <div class="f" style="margin-top:14px"><span style="font-weight:500;font-size:14.5px">الفصول المستهدفة</span><div class="pick">${myClasses().map(c => `<label><input type="checkbox" data-c="edCls" value="${esc(c.id)}" ${E.classIds.includes(c.id) ? 'checked' : ''}><span>${esc(c.name)}</span></label>`).join('')}</div></div>
-  <div class="grid g4" style="margin-top:14px"><label class="f">المدة بالدقائق (0 = مفتوح)<input class="in" type="number" min="0" max="600" data-b="s:duration" value="${E.duration}"></label><label class="f">آخر موعد للتسليم (اختياري)<input class="in" type="datetime-local" data-b="s:dueAt" value="${dt}"></label>
-  <label class="f">إظهار النتيجة<select class="in" data-b="s:resultsMode"><option value="instant" ${E.resultsMode === 'instant' ? 'selected' : ''}>فور انتهاء الطالب</option><option value="manual" ${E.resultsMode === 'manual' ? 'selected' : ''}>بعد أن أعلنها</option></select></label>
+  <div class="grid g4" style="margin-top:14px"><label class="f">المدة بالدقائق (0 = مفتوح)<input class="in" type="number" min="0" max="600" data-b="s:duration" value="${E.duration}"></label><label class="f">يبدأ في (اختياري)<input class="in" type="datetime-local" data-b="s:openAt" value="${ot}"></label><label class="f">آخر موعد للتسليم (اختياري)<input class="in" type="datetime-local" data-b="s:dueAt" value="${dt}"></label>
+  <label class="f">إظهار النتيجة<select class="in" data-b="s:resultsMode"><option value="instant" ${E.resultsMode === 'instant' ? 'selected' : ''}>فور انتهاء الطالب</option><option value="afterDue" ${E.resultsMode === 'afterDue' ? 'selected' : ''}>بعد انتهاء الموعد للجميع</option><option value="manual" ${E.resultsMode === 'manual' ? 'selected' : ''}>بعد أن أعلنها</option></select></label>
   <div class="col" style="justify-content:flex-end;gap:8px"><label class="sw"><input type="checkbox" data-b="s:showAnswers" ${E.showAnswers ? 'checked' : ''}> إظهار الإجابات الصحيحة للطالب</label><label class="sw"><input type="checkbox" data-b="s:shuffle" ${E.shuffle ? 'checked' : ''}> ترتيب عشوائي للأسئلة والخيارات</label></div></div></section>
+  <section class="card" id="integ"><div class="row sp"><h3 style="margin:0">${ico('shield', 'style="width:22px;vertical-align:middle"')} النزاهة ومنع الغش</h3><div class="tabs">${[['off', 'بدون'], ['mid', 'متوسط'], ['strict', 'صارم']].map(([k, l]) => `<button class="${G.preset === k ? 'on' : ''}" data-a="integPreset" data-p="${k}">${l}</button>`).join('')}</div></div>
+  <p class="small muted" style="margin:6px 0 14px">اختر الحماية المناسبة لهذا الاختبار. تظهر للطلاب قبل البدء كتنبيه، وتظهر نتائجها لك في تقرير الاختبار.</p>
+  <div class="grid g2">
+  <label class="f">بنك أسئلة: اسحب لكل طالب<select class="in" data-b="g:drawCount"><option value="0">كل الأسئلة (${nQ})</option>${Array.from({ length: Math.max(0, nQ - 1) }, (_, i) => i + 1).filter(n => n >= 3).map(n => `<option value="${n}" ${+G.drawCount === n ? 'selected' : ''}>${n} سؤال عشوائي من ${nQ}</option>`).join('')}</select></label>
+  <label class="f">وقت لكل سؤال<select class="in" data-b="g:qTime">${[[0, 'بدون'], [20, '20 ثانية'], [30, '30 ثانية'], [45, '45 ثانية'], [60, 'دقيقة'], [90, 'دقيقة ونصف'], [120, 'دقيقتان'], [300, '5 دقائق']].map(([v, l]) => `<option value="${v}" ${+G.qTime === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+  <label class="sw"><input type="checkbox" data-b="g:noBack" ${G.noBack ? 'checked' : ''}> سؤال في كل صفحة بدون رجوع</label>
+  <label class="sw"><input type="checkbox" data-b="g:noCopy" ${G.noCopy ? 'checked' : ''}> منع النسخ واللصق ورصد اللصق</label>
+  <label class="sw"><input type="checkbox" data-b="g:trackFocus" ${G.trackFocus ? 'checked' : ''}> رصد الخروج من صفحة الاختبار</label>
+  <label class="f">التسليم التلقائي بعد عدد مرات الخروج<select class="in" data-b="g:maxLeaves">${[[0, 'لا، سجّل فقط'], [1, 'بعد مرة واحدة'], [2, 'بعد مرتين'], [3, 'بعد 3 مرات'], [5, 'بعد 5 مرات']].map(([v, l]) => `<option value="${v}" ${+G.maxLeaves === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+  <label class="sw"><input type="checkbox" data-b="g:fullscreen" ${G.fullscreen ? 'checked' : ''}> ملء الشاشة أثناء الاختبار (على الكمبيوتر)</label>
+  <label class="sw"><input type="checkbox" data-b="g:asImage" ${G.asImage ? 'checked' : ''}> عرض نص الأسئلة والخيارات كصور (يصعّب النسخ للذكاء الاصطناعي)</label>
+  <label class="sw"><input type="checkbox" data-b="g:similarity" ${G.similarity ? 'checked' : ''}> كشف التشابه بين إجابات الطلاب في التقرير</label>
+  </div><p class="small muted" style="margin-top:12px">تلميح: لإخفاء الإجابات الصحيحة حتى يُغلق الاختبار للجميع، اختر في «إظهار النتيجة»: بعد انتهاء الموعد للجميع. ولإضافة سؤال يُحل بخط اليد اختر نوع «حل بخط اليد».</p></section>
   <div class="col" id="qlist" style="gap:14px">${E.qs.map(qEditor).join('') || `<div class="card flat center muted">لم تُضف أسئلة بعد. اختر نوع السؤال بالأسفل، أو الصق أسئلتك دفعة واحدة.</div>`}</div>
   <section class="card"><div class="row sp" style="margin-bottom:12px"><h3 style="margin:0">أضف سؤالًا</h3><div class="row"><button class="btn sm" data-a="pdfOpen">${ico('dl')} استيراد من PDF</button><button class="btn sm soft" data-a="bulkOpen">${ico('copy')} لصق سريع لعدة أسئلة</button><button class="btn sm acc" data-a="aiGenOpen">${ico('wand')} توليد بالذكاء الاصطناعي</button></div></div>
   <div class="types">${Object.entries(QT).map(([k, t]) => `<button class="type" data-a="addQ" data-t="${k}">${ico(k)}<b>${t.n}</b><small>${t.d}</small></button>`).join('')}</div></section>
@@ -1051,6 +1082,7 @@ function qEditor(q, i) {
     case 'tf': body = txt('اكتب العبارة') + `<div class="pick">${[['true', 'صح'], ['false', 'خطأ']].map(([v, l]) => `<label><input type="radio" name="tf${q.id}" ${q.correct === v ? 'checked' : ''} data-c="tfSet" data-i="${i}" value="${v}"><span>الإجابة: ${l}</span></label>`).join('')}</div>`; break;
     case 'short': body = txt('مثال: ما عاصمة المملكة؟') + `<div class="col" style="gap:8px"><span class="small muted">الإجابات المقبولة (يقارنها النظام بذكاء مع مراعاة الهمزات والتشكيل والأخطاء الإملائية البسيطة)</span>${q.accepted.map((a, j) => `<div class="optrow"><input class="in" data-b="acc:${i}:${j}" value="${esc(a)}" placeholder="إجابة مقبولة"><button class="btn icon sm ghost" ${X('delAcc', j)}>${ico('x')}</button></div>`).join('')}<button class="btn sm ghost" style="align-self:flex-start" ${X('addAcc')}>${ico('plus')} صيغة أخرى مقبولة</button><label class="f small">كلمات مفتاحية (اختياري، افصل بفاصلة)<input class="in" data-b="kw:${i}" value="${esc(q.keywords.join('، '))}" placeholder="مثل: الرياض، نجد"></label></div>`; break;
     case 'essay': body = txt('اكتب سؤال المقال') + `<label class="f">الإجابة النموذجية (تساعد في الاقتراح الذكي)<textarea class="in" data-b="q:${i}:model">${esc(q.model)}</textarea></label><div class="grid g2"><label class="f small">عناصر يجب ذكرها (افصل بفاصلة)<input class="in" data-b="kw:${i}" value="${esc(q.keywords.join('، '))}"></label><label class="f small">أقل عدد كلمات (اختياري)<input class="in" type="number" min="0" data-b="q:${i}:minWords" value="${q.minWords || 0}"></label></div>`; break;
+    case 'photo': body = txt('اكتب السؤال، وسيحله الطالب على ورقة ويرفع صورة الحل') + `<label class="f">الحل النموذجي (يظهر لك عند التقييم)<textarea class="in" data-b="q:${i}:model">${esc(q.model || '')}</textarea></label>`; break;
     case 'fill': body = `<label class="f">النص مع الفراغات<textarea class="in" data-b="q:${i}:text" placeholder="عاصمة المملكة هي [[الرياض]] وتقع في منطقة [[نجد|وسط المملكة]]">${esc(q.text)}</textarea></label><p class="small muted">ضع كل إجابة بين [[ ]]، والصيغ البديلة يفصلها الرمز |</p>`; break;
     case 'match': body = txt('مثال: صِل كل دولة بعاصمتها') + `<div class="col" style="gap:8px">${q.pairs.map((p, j) => `<div class="optrow"><input class="in" data-b="pl:${i}:${j}" value="${esc(p.l)}" placeholder="العنصر"><span>${ico('back', 'style="width:20px;transform:scaleX(-1)"')}</span><input class="in" data-b="pr:${i}:${j}" value="${esc(p.r)}" placeholder="ما يقابله"><button class="btn icon sm ghost" ${X('delPair', j)}>${ico('x')}</button></div>`).join('')}<button class="btn sm ghost" style="align-self:flex-start" ${X('addPair')}>${ico('plus')} زوج</button><label class="f small">خيارات مشتتة إضافية (سطر لكل خيار، اختياري)<textarea class="in" style="min-height:60px" data-b="ex:${i}">${esc((q.extra || []).join('\n'))}</textarea></label></div>`; break;
     case 'order': body = txt('مثال: رتّب مراحل دورة الماء') + `<div class="col" style="gap:8px"><span class="small muted">اكتب العناصر بترتيبها الصحيح، وسيظهر للطالب مخلوطًا</span>${q.items.map((it, j) => `<div class="optrow"><span class="qnum" style="width:30px;height:30px;font-size:13px">${j + 1}</span><input class="in" data-b="it:${i}:${j}" value="${esc(it.t)}"><button class="btn icon sm ghost" ${X('mvItem', j)} data-d="-1">${ico('up')}</button><button class="btn icon sm ghost" ${X('delItem', j)}>${ico('x')}</button></div>`).join('')}<button class="btn sm ghost" style="align-self:flex-start" ${X('addItem')}>${ico('plus')} عنصر</button></div>`; break;
@@ -1065,7 +1097,8 @@ function qEditor(q, i) {
 BIND = el => {
   const [k, a, b] = el.dataset.b.split(':'); const E = S.ed; if (!E && k !== 'cert') return BINDX(el); if (k === 'cert') return BINDX(el);
   const v = el.type === 'checkbox' ? el.checked : el.value; E.dirty = true;
-  if (k === 's') { if (a === 'dueAt') E.dueAt = v ? new Date(v).getTime() : 0; else if (a === 'duration') E.duration = Math.max(0, +v || 0); else E[a] = v; return; }
+  if (k === 'g') { E.integrity[a] = el.type === 'checkbox' ? el.checked : Math.max(0, +v || 0); E.integrity.preset = ''; return; }
+  if (k === 's') { if (a === 'openAt') E.openAt = v ? new Date(v).getTime() : 0; else if (a === 'dueAt') E.dueAt = v ? new Date(v).getTime() : 0; else if (a === 'duration') E.duration = Math.max(0, +v || 0); else E[a] = v; return; }
   const q = E.qs[+a]; if (!q) return;
   if (k === 'q') q[b] = ['points', 'value', 'tol', 'minWords'].includes(b) ? (v === '' ? '' : +v) : v;
   else if (k === 'c') q.choices[+b].t = v; else if (k === 'acc') q.accepted[+b] = v; else if (k === 'kw') q.keywords = v.split(/[,،]/).map(s => s.trim()).filter(Boolean);
@@ -1074,6 +1107,8 @@ BIND = el => {
 let BINDX = () => { };
 const edR = () => { S.ed.dirty = true; const y = scrollY; render(); scrollTo(0, y); };
 const QI = el => S.ed.qs[+el.dataset.i];
+const PRESETS = { off: { drawCount: 0, noBack: false, qTime: 0, trackFocus: false, maxLeaves: 0, noCopy: false, asImage: false, similarity: true, fullscreen: false }, mid: { noBack: false, qTime: 0, trackFocus: true, maxLeaves: 0, noCopy: true, asImage: false, similarity: true, fullscreen: false }, strict: { noBack: true, qTime: 45, trackFocus: true, maxLeaves: 3, noCopy: true, asImage: true, similarity: true, fullscreen: true } };
+A.integPreset = el => { const E = S.ed, p = el.dataset.p, n = E.qs.filter(q => q.type !== 'passage').length; Object.assign(E.integrity, PRESETS[p], { preset: p }); if (p === 'strict' && n >= 10) E.integrity.drawCount = Math.max(5, Math.round(n * .7)); if (p !== 'strict') E.integrity.drawCount = p === 'off' ? 0 : E.integrity.drawCount; edR(); toast(p === 'off' ? 'أُلغيت الحماية' : p === 'mid' ? 'حماية متوسطة: رصد الخروج ومنع النسخ' : 'حماية صارمة: بدون رجوع، وقت لكل سؤال، أسئلة كصور، تسليم تلقائي بعد 3 خروج'); };
 A.addQ = el => { S.ed.qs.push(newQ(el.dataset.t)); edR(); setTimeout(() => { const n = $$('.qed').pop(); n?.scrollIntoView({ behavior: 'smooth', block: 'center' }); n?.querySelector('textarea,input')?.focus(); }, 60); };
 A.delQ = async el => { if (await ask('حذف السؤال؟', '', 'حذف', true)) { S.ed.qs.splice(+el.dataset.i, 1); edR(); } };
 A.dupQ = el => { const c = clone(QI(el)); c.id = rid(6); S.ed.qs.splice(+el.dataset.i + 1, 0, c); edR(); };
@@ -1106,8 +1141,10 @@ A.edSave = async el => {
     if (!E.qs.some(q => q.type !== 'passage')) return toast('أضف سؤالًا واحدًا على الأقل');
     for (const [i, q] of E.qs.entries()) { const n = i + 1; if (!q.text.trim()) return toast(`السؤال ${n} بلا نص`); if (q.type === 'mcq' && !q.choices.some(c => c.ok && c.t.trim())) return toast(`حدد الإجابة الصحيحة في السؤال ${n}`); if (q.type === 'multi' && !q.choices.some(c => c.ok)) return toast(`حدد إجابة صحيحة في السؤال ${n}`); if (q.type === 'fill' && !/\[\[.+?\]\]/.test(q.text)) return toast(`السؤال ${n}: ضع الإجابة بين [[ ]]`); if (q.type === 'short' && !q.accepted.some(a => a.trim()) && !q.keywords.length) return toast(`السؤال ${n}: اكتب الإجابة المقبولة`); }
   }
+  const nQ = E.qs.filter(q => q.type !== 'passage').length; if (E.integrity.drawCount && E.integrity.drawCount >= nQ) E.integrity.drawCount = 0;
+  if (E.openAt && E.dueAt && E.openAt >= E.dueAt) return toast('وقت البدء يجب أن يكون قبل آخر موعد');
   const parts = E.qs.map(splitQ); const pubQs = parts.map(p => p.pub); const key = { answers: Object.fromEntries(parts.map(p => [p.pub.id, p.key])) };
-  const doc = { title: E.title.trim(), desc: E.desc.trim(), classIds: E.classIds, duration: E.duration, dueAt: E.dueAt || 0, resultsMode: E.resultsMode, showAnswers: E.showAnswers, shuffle: E.shuffle, questions: pubQs, totalPoints: sum(pubQs.map(q => q.points)), status: st, updatedAt: now() };
+  const doc = { title: E.title.trim(), desc: E.desc.trim(), classIds: E.classIds, duration: E.duration, dueAt: E.dueAt || 0, resultsMode: E.resultsMode, showAnswers: E.showAnswers, shuffle: E.shuffle, openAt: E.openAt || 0, integrity: E.integrity, questions: pubQs, totalPoints: sum(pubQs.map(q => q.points)), status: st, updatedAt: now() };
   doc.pubClasses = st === 'published' ? E.classIds : [];
   if (st === 'published' && E.status !== 'published') doc.publishedAt = now();
   if (st === 'pending') doc.rejectNote = '';
@@ -1164,7 +1201,7 @@ function reviewCard(g, gi) {
   const { quiz, it } = g[0]; const q = quiz.questions.find(x => x.id === it.qid); const k = S.keys[quiz.id]?.answers?.[q.id]; const conf = Math.round((it.conf || 0) * 100);
   return `<div class="card" id="rg-${gi}"><div class="row sp"><div class="row"><span class="chip br">${esc(quiz.title)}</span><span class="chip">${QT[q.type].n}</span><span class="chip">${q.points} درجة</span></div><span class="chip ${conf >= 60 ? 'ok' : conf >= 40 ? 'warn' : 'bad'}">تقدير النظام: تطابق ${conf}%</span></div>
   <p style="margin:12px 0 6px;font-weight:600">${esc(q.text)}</p>
-  <div class="grid g2"><div class="rv"><span class="small muted">إجابة الطالب${g.length > 1 ? ` (${g.length} طلاب كتبوا نفس الإجابة)` : ''}</span><b style="white-space:pre-wrap">${esc(ansText(q, it.ans))}</b>${it.words != null ? `<span class="small muted">${it.words} كلمة</span>` : ''}</div><div class="rv ok"><span class="small muted">الإجابة المعتمدة</span><b style="white-space:pre-wrap">${esc(keyText(q, k)) || '—'}</b></div></div>
+  <div class="grid g2"><div class="rv"><span class="small muted">إجابة الطالب${g.length > 1 ? ` (${g.length} طلاب كتبوا نفس الإجابة)` : ''}</span>${q.type === 'photo' && it.ans ? `<a href="${esc(it.ans)}" target="_blank" rel="noopener"><img src="${esc(it.ans)}" alt="حل الطالب" style="max-width:100%;max-height:360px;border-radius:12px"></a>` : `<b style="white-space:pre-wrap">${esc(ansText(q, it.ans))}</b>`}${it.words != null ? `<span class="small muted">${it.words} كلمة</span>` : ''}</div><div class="rv ok"><span class="small muted">الإجابة المعتمدة</span><b style="white-space:pre-wrap">${esc(keyText(q, k)) || '—'}</b></div></div>
   <p class="small muted" style="margin-top:8px">${g.map(x => esc(x.sub.name)).join('، ')}</p>
   <div id="ai-${gi}"></div>
   <div class="row" style="margin-top:12px"><button class="btn okb" data-a="rvSet" data-g="${gi}" data-v="full">${ico('check')} صحيحة</button><button class="btn danger" data-a="rvSet" data-g="${gi}" data-v="0">${ico('x')} خاطئة</button><div class="row" style="gap:6px"><input class="in" type="number" step="0.5" min="0" max="${q.points}" id="rp-${gi}" value="${it.suggest ?? ''}" style="width:90px;min-height:44px" aria-label="درجة جزئية"><button class="btn soft" data-a="rvSet" data-g="${gi}" data-v="part">درجة جزئية</button></div>
@@ -1189,7 +1226,8 @@ A.rvAccept = async el => {
 A.rvAI = async el => {
   const gi = el.dataset.g, g = rvGroups()[+gi]; const { quiz, it } = g[0]; const q = quiz.questions.find(x => x.id === it.qid); const box = $('#ai-' + gi); box.innerHTML = `<p class="small muted" style="margin-top:10px">جارٍ التحليل…</p>`;
   try {
-    const r = await gemini(`أنت مصحح عادل ودقيق. السؤال: ${q.text}\nالإجابة النموذجية: ${keyText(q, S.keys[quiz.id]?.answers?.[q.id])}\nإجابة الطالب: ${ansText(q, it.ans)}\nالدرجة الكاملة: ${q.points}\nأعد JSON: {"points": رقم, "verdict": "صحيحة|جزئية|خاطئة", "reason": "سبب مختصر بالعربية"}`);
+    const photo = q.type === 'photo' && it.ans;
+    const r = await gemini(`أنت مصحح عادل ودقيق. السؤال: ${q.text}\nالإجابة النموذجية: ${keyText(q, S.keys[quiz.id]?.answers?.[q.id])}\nإجابة الطالب: ${photo ? 'في الصورة المرفقة (حل بخط اليد)' : ansText(q, it.ans)}\nالدرجة الكاملة: ${q.points}\nأعد JSON: {"points": رقم, "verdict": "صحيحة|جزئية|خاطئة", "reason": "سبب مختصر بالعربية"}`, photo ? it.ans : undefined);
     box.innerHTML = `<div class="alert br" style="margin-top:10px">${ico('wand', 'style="width:20px"')}<span class="grow"><b>${esc(r.verdict)}، ${esc(r.points)} من ${q.points}</b><br><span class="small">${esc(r.reason)}</span></span></div>`; const inp = $('#rp-' + gi); if (inp) inp.value = r.points;
   } catch (e) { box.innerHTML = `<p class="small" style="color:var(--bad);margin-top:10px">${esc(e.message)}</p>`; }
 };
@@ -1197,8 +1235,8 @@ A.rvAI = async el => {
 /* submission detail (staff) */
 A.subDetail = el => {
   const s = S.subs.find(x => x.id === el.dataset.id); const q = quizById(s.quizId); const ev = evalSub(q, S.keys[q.id], s, S.reviews[s.id]);
-  openModal(`<div class="row sp"><div class="row">${avatar(s.name)}<div><h2>${esc(s.name)}</h2><p class="small muted">${esc(q.title)} · ${fmtDT(s.submittedAt)}${s.timeSpent ? ` · استغرق ${Math.round(s.timeSpent / 60)} دقيقة` : ''}</p></div></div><span class="chip ${grade5(ev.pct)[1]}" style="font-size:16px;padding:6px 14px">${ev.total} / ${ev.max} · ${ev.pct}%</span></div>
-  <div class="col" style="gap:10px;margin-top:16px">${ev.items.map((i, n) => `<div class="rv ${i.status === 'correct' ? 'ok' : i.status === 'review' ? 'warn' : i.status === 'partial' ? 'warn' : 'bad'}"><div class="row sp"><b>${n + 1}. ${esc(i.q.text.slice(0, 140))}</b><span class="chip ${i.status === 'correct' ? 'ok' : i.status === 'wrong' ? 'bad' : 'warn'}">${i.status === 'review' ? 'تحتاج تقييم' : `${i.score} / ${i.max}`}</span></div><span class="small">إجابته: ${esc(ansText(i.q, i.ans))}</span><span class="small muted">الصحيح: ${esc(keyText(i.q, S.keys[q.id]?.answers?.[i.qid]))}</span><div class="row noprint" style="gap:6px"><input class="in" type="number" step="0.5" min="0" max="${i.max}" value="${i.status === 'review' ? (i.suggest ?? '') : i.score}" id="ov-${i.qid}" style="width:90px;min-height:38px"><button class="btn sm soft" data-a="ovSave" data-s="${s.id}" data-q="${i.qid}">تعديل الدرجة</button>${i.reviewed ? '<span class="chip br">قيّمها المعلم</span>' : ''}</div></div>`).join('')}</div>
+  openModal(`<div class="row sp"><div class="row">${avatar(s.name)}<div><h2>${esc(s.name)}</h2><p class="small muted">${esc(q.title)} · ${fmtDT(s.submittedAt)}${s.timeSpent ? ` · استغرق ${Math.round(s.timeSpent / 60)} دقيقة` : ''}</p>${s.integrity && (s.integrity.leaves || s.integrity.pastes || s.integrity.pasteSus) ? `<p class="small" style="color:var(--bad)">خرج من الاختبار ${s.integrity.leaves} مرة (${Math.round((s.integrity.awayMs || 0) / 1000)} ث)${s.integrity.pastes ? ` · حاول اللصق ${s.integrity.pastes} مرة` : ''}${s.integrity.pasteSus ? ` · إدخال نص دفعة واحدة ${s.integrity.pasteSus} مرة` : ''}${s.auto ? ' · سُلِّم تلقائيًا' : ''}</p>` : ''}</div></div><span class="chip ${grade5(ev.pct)[1]}" style="font-size:16px;padding:6px 14px">${ev.total} / ${ev.max} · ${ev.pct}%</span></div>
+  <div class="col" style="gap:10px;margin-top:16px">${ev.items.map((i, n) => `<div class="rv ${i.status === 'correct' ? 'ok' : i.status === 'review' ? 'warn' : i.status === 'partial' ? 'warn' : 'bad'}"><div class="row sp"><b>${n + 1}. ${esc(i.q.text.slice(0, 140))}</b><span class="chip ${i.status === 'correct' ? 'ok' : i.status === 'wrong' ? 'bad' : 'warn'}">${i.status === 'review' ? 'تحتاج تقييم' : `${i.score} / ${i.max}`}</span></div>${i.q.type === 'photo' && i.ans ? `<img src="${esc(i.ans)}" alt="حل الطالب" style="max-width:280px;border-radius:12px">` : `<span class="small">إجابته: ${esc(ansText(i.q, i.ans))}</span>`}<span class="small muted">الصحيح: ${esc(keyText(i.q, S.keys[q.id]?.answers?.[i.qid]))}</span><div class="row noprint" style="gap:6px"><input class="in" type="number" step="0.5" min="0" max="${i.max}" value="${i.status === 'review' ? (i.suggest ?? '') : i.score}" id="ov-${i.qid}" style="width:90px;min-height:38px"><button class="btn sm soft" data-a="ovSave" data-s="${s.id}" data-q="${i.qid}">تعديل الدرجة</button>${i.reviewed ? '<span class="chip br">قيّمها المعلم</span>' : ''}</div></div>`).join('')}</div>
   <div class="row noprint" style="justify-content:flex-end;margin-top:16px"><button class="btn ghost" data-a="print">${ico('print')} طباعة</button>${isAdmin() ? `<button class="btn danger" data-a="subReset" data-s="${s.id}">السماح بإعادة الاختبار</button>` : ''}<button class="btn" data-a="close">تم</button></div>`, true);
 };
 A.ovSave = async el => { const s = S.subs.find(x => x.id === el.dataset.s); await safe(async () => { await setOverride(s, el.dataset.q, +$('#ov-' + el.dataset.q).value || 0); A.subDetail({ dataset: { id: s.id } }); render(); }, 'تم تعديل الدرجة'); };
@@ -1267,7 +1305,7 @@ VIEWS.sdash = () => {
   return `<div class="col" style="gap:20px"><section class="hero"><div class="col" style="gap:10px"><span style="opacity:.85">${esc(clsName(S.me.classId))}</span><h1>أهلًا ${esc(S.me.name.split(' ')[0])}</h1><p>${open.length ? `لديك ${open.length} اختبار بانتظارك` : 'لا توجد اختبارات جديدة الآن، أحسنت!'}</p>${open[0] ? `<button class="btn gold" style="align-self:flex-start" data-a="startQuiz" data-id="${open[0].id}">${ico('quiz')} ابدأ «${esc(open[0].title)}»</button>` : ''}</div>${ART}</section>
   <div class="grid g4">${stat(done.length, 'اختبار أنجزته')}${stat(r1(av) + '%', 'متوسط درجاتي', 'var(--ok)')}${stat(best + '%', 'أعلى درجة', 'var(--gold)')}${stat(certs.length, 'شهادة تقدير', 'var(--accent)')}</div>
   ${(() => { const pt = (S.tasks || []).filter(t => t.status !== 'closed' && (!myPerf(t.id) || myPerf(t.id).needsRetry)); return pt.length ? `<div class="alert acc">${ico('mic', 'style="width:22px"')}<span class="grow">لديك ${pt.length} مهمة إلقاء${pt.some(t => myPerf(t.id)?.needsRetry) ? ' (منها طلب تحسين)' : ''}</span><button class="btn sm acc" data-a="nav" data-v="myperf">سجّل الآن</button></div>` : ''; })()}
-  <section><h2 style="margin-bottom:12px">الاختبارات المتاحة</h2>${open.length ? `<div class="grid g2">${open.map(q => `<article class="qcard" style="--c:${colorOf(q.id)}"><h3>${esc(q.title)}</h3>${q.desc ? `<p class="muted small">${esc(q.desc)}</p>` : ''}<div class="row small muted"><span>${ico('quiz', 'style="width:16px;vertical-align:middle"')} ${q.questions.filter(x => x.type !== 'passage').length} سؤال</span><span>${q.totalPoints} درجة</span>${q.duration ? `<span>${ico('clock', 'style="width:16px;vertical-align:middle"')} ${q.duration} دقيقة</span>` : ''}${q.dueAt ? `<span class="chip warn">ينتهي ${fmtDT(q.dueAt)}</span>` : ''}</div><button class="btn" style="align-self:flex-start" data-a="startQuiz" data-id="${q.id}">ابدأ الاختبار</button></article>`).join('')}</div>` : `<div class="card flat center muted">لا توجد اختبارات متاحة حاليًا</div>`}</section>
+  <section><h2 style="margin-bottom:12px">الاختبارات المتاحة</h2>${open.length ? `<div class="grid g2">${open.map(q => `<article class="qcard" style="--c:${colorOf(q.id)}"><h3>${esc(q.title)}</h3>${q.desc ? `<p class="muted small">${esc(q.desc)}</p>` : ''}<div class="row small muted"><span>${ico('quiz', 'style="width:16px;vertical-align:middle"')} ${q.questions.filter(x => x.type !== 'passage').length} سؤال</span><span>${q.totalPoints} درجة</span>${q.duration ? `<span>${ico('clock', 'style="width:16px;vertical-align:middle"')} ${q.duration} دقيقة</span>` : ''}${q.dueAt ? `<span class="chip warn">ينتهي ${fmtDT(q.dueAt)}</span>` : ''}${integrityNotes(q).length ? `<span class="chip acc">${ico('shield', 'style="width:14px"')} اختبار محمي</span>` : ''}</div>${q.openAt && q.openAt > now() ? `<span class="chip br" style="align-self:flex-start">يبدأ ${fmtDT(q.openAt)}</span>` : `<button class="btn" style="align-self:flex-start" data-a="startQuiz" data-id="${q.id}">ابدأ الاختبار</button>`}</article>`).join('')}</div>` : `<div class="card flat center muted">لا توجد اختبارات متاحة حاليًا</div>`}</section>
   ${ann.length ? `<section><h2 style="margin-bottom:12px">آخر الرسائل</h2><div class="list">${ann.map(msgRow).join('')}</div></section>` : ''}</div>`;
 };
 VIEWS.myres = () => {
@@ -1282,14 +1320,26 @@ VIEWS.myres = () => {
 };
 
 /* ---------------- question renderer ---------------- */
+const IMGC = new Map();
+function textImg(text, size = 19, w = 700) {
+  const key = size + '|' + text; if (IMGC.has(key)) return IMGC.get(key);
+  const c = document.createElement('canvas'), x = c.getContext('2d'), dpr = 2, font = `500 ${size}px "Readex Pro", sans-serif`, lh = size * 1.75;
+  x.font = font; const lines = []; for (const para of String(text).split('\n')) { let line = ''; for (const wd of para.split(' ')) { const t = line ? line + ' ' + wd : wd; if (x.measureText(t).width > w - 8 && line) { lines.push(line); line = wd; } else line = t; } lines.push(line); }
+  const width = Math.min(w, Math.max(...lines.map(l => x.measureText(l).width)) + 10);
+  c.width = width * dpr; c.height = (lines.length * lh + 6) * dpr; x.scale(dpr, dpr); x.font = font; x.direction = 'rtl'; x.textAlign = 'right'; x.textBaseline = 'middle';
+  x.fillStyle = getComputedStyle(document.body).color || '#3b1429'; lines.forEach((l, i) => x.fillText(l, width - 4, i * lh + lh / 2 + 3));
+  const html = `<img class="qtimg" src="${c.toDataURL()}" style="width:${width}px" alt="" draggable="false">`; IMGC.set(key, html); return html;
+}
 function renderQ(q, a, i, preview, seed = 1) {
   const dis = preview ? 'disabled' : ''; const L = 'أبجدهوزحطي';
-  const head = q.type === 'passage' ? `<div class="passage">${esc(q.text)}</div>` : `<div class="row sp" style="margin-bottom:6px"><span class="chip br">${QT[q.type].n}${q.tag ? ' · ' + esc(q.tag) : ''}</span><span class="chip">${q.points} ${q.points == 1 ? 'درجة' : 'درجات'}</span></div>${q.type !== 'fill' ? `<div class="qbody">${esc(q.text)}</div>` : ''}${q.img ? `<img class="qimg" src="${esc(q.img)}" alt="صورة السؤال">` : ''}`;
+  const asImg = !preview && S.take?.quiz?.integrity?.asImage; const T = (t, sz) => asImg ? textImg(t, sz) : esc(t);
+  const head = q.type === 'passage' ? `<div class="passage">${esc(q.text)}</div>` : `<div class="row sp" style="margin-bottom:6px"><span class="chip br">${QT[q.type].n}${q.tag ? ' · ' + esc(q.tag) : ''}</span><span class="chip">${q.points} ${q.points == 1 ? 'درجة' : 'درجات'}</span></div>${q.type !== 'fill' ? `<div class="qbody">${T(q.text, 19)}</div>` : ''}${q.img ? `<img class="qimg" src="${esc(q.img)}" alt="صورة السؤال">` : ''}`;
   let body = '';
   const shuf = arr => S.take?.quiz?.shuffle ? shuffle(arr, seed + hashStr(q.id)) : arr;
   switch (q.type) {
-    case 'mcq': body = `<div class="opts">${shuf(q.choices).map((c, j) => `<button class="opt ${a === c.id ? 'sel' : ''}" data-a="tAns" data-q="${q.id}" data-v="${c.id}" ${dis}><span class="k">${L[j] || j + 1}</span><span>${esc(c.t)}</span></button>`).join('')}</div>`; break;
-    case 'multi': body = `<p class="small muted" style="margin-top:8px">اختر كل الإجابات الصحيحة</p><div class="opts">${shuf(q.choices).map((c, j) => `<button class="opt ${(a || []).includes(c.id) ? 'sel' : ''}" data-a="tMulti" data-q="${q.id}" data-v="${c.id}" ${dis}><span class="k">${(a || []).includes(c.id) ? ico('check', 'style="width:18px"') : L[j]}</span><span>${esc(c.t)}</span></button>`).join('')}</div>`; break;
+    case 'mcq': body = `<div class="opts">${shuf(q.choices).map((c, j) => `<button class="opt ${a === c.id ? 'sel' : ''}" data-a="tAns" data-q="${q.id}" data-v="${c.id}" ${dis}><span class="k">${L[j] || j + 1}</span><span>${T(c.t, 17)}</span></button>`).join('')}</div>`; break;
+    case 'photo': body = `<p class="small muted" style="margin-top:10px">حل السؤال على ورقة بخط يدك، ثم صوّر الحل وارفعه هنا</p>${a ? `<img src="${esc(a)}" alt="صورة الحل" style="max-width:100%;max-height:420px;border-radius:14px;border:1px solid var(--line);margin-top:10px">` : ''}<label class="btn ${a ? 'ghost' : ''}" style="margin-top:12px;cursor:pointer">${ico('img')} ${a ? 'تغيير الصورة' : 'صوّر الحل أو اختر صورة'}<input type="file" accept="image/*" capture="environment" hidden data-c="tPhoto" data-q="${q.id}" ${dis}></label>`; break;
+    case 'multi': body = `<p class="small muted" style="margin-top:8px">اختر كل الإجابات الصحيحة</p><div class="opts">${shuf(q.choices).map((c, j) => `<button class="opt ${(a || []).includes(c.id) ? 'sel' : ''}" data-a="tMulti" data-q="${q.id}" data-v="${c.id}" ${dis}><span class="k">${(a || []).includes(c.id) ? ico('check', 'style="width:18px"') : L[j]}</span><span>${T(c.t, 17)}</span></button>`).join('')}</div>`; break;
     case 'tf': body = `<div class="tf">${[['true', 'صح'], ['false', 'خطأ']].map(([v, l]) => `<button class="opt ${a === v ? 'sel' : ''}" data-a="tAns" data-q="${q.id}" data-v="${v}" ${dis}>${ico(v === 'true' ? 'check' : 'x', 'style="width:26px"')} ${l}</button>`).join('')}</div>`; break;
     case 'short': body = `<input class="in" style="margin-top:14px;font-size:18px" data-t="${q.id}" value="${esc(a || '')}" placeholder="اكتب إجابتك" ${dis}>`; break;
     case 'essay': body = `<textarea class="in" style="margin-top:14px;min-height:180px;font-size:17px" data-t="${q.id}" placeholder="اكتب إجابتك هنا${q.minWords ? ` (${q.minWords} كلمة على الأقل)` : ''}" ${dis}>${esc(a || '')}</textarea><p class="small muted" id="wc-${q.id}">${normAr(a || '').split(' ').filter(Boolean).length} كلمة</p>`; break;
@@ -1303,63 +1353,104 @@ function renderQ(q, a, i, preview, seed = 1) {
 
 /* ---------------- taking a quiz ---------------- */
 const takeKey = qid => 'qz_take_' + qid + '_' + S.user.uid;
+const integ = q => q.integrity || {};
+function integrityNotes(q) {
+  const g = integ(q), n = [];
+  if (g.drawCount) n.push('أسئلتك مختارة عشوائيًا وتختلف عن زميلاتك');
+  if (g.noBack) n.push('لا يمكن الرجوع للسؤال السابق بعد تجاوزه');
+  if (g.qTime) n.push(`لكل سؤال ${g.qTime} ثانية، وينتقل تلقائيًا عند انتهائها`);
+  if (g.trackFocus) n.push(g.maxLeaves ? `يُسجَّل الخروج من صفحة الاختبار، وبعد ${g.maxLeaves} مرات يُسلَّم الاختبار تلقائيًا` : 'يُسجَّل كل خروج من صفحة الاختبار ويظهر لمعلمك');
+  if (g.noCopy) n.push('النسخ واللصق غير مسموحين');
+  if (g.similarity) n.push('تُقارن الإجابات بين الطلاب آليًا لكشف التشابه');
+  return n;
+}
 A.startQuiz = async el => {
   const q = quizById(el.dataset.id); if (mySub(q.id)) return go('result', { id: q.id });
-  const saved = store.get(takeKey(q.id), null);
-  if (!saved) { if (!await ask(`بدء «${q.title}»؟`, `${q.questions.filter(x => x.type !== 'passage').length} سؤال${q.duration ? ` ومدة ${q.duration} دقيقة تبدأ الآن ولا تتوقف` : ''}. لديك محاولة واحدة.`, 'ابدأ')) return; }
-  const t = saved && saved.order ? saved : { qid: q.id, ans: {}, start: now(), seed: Math.floor(Math.random() * 1e6), idx: 0 };
-  const order = q.questions.map((_, i) => i).filter(i => q.questions[i].type !== 'passage'); t.order = q.shuffle ? groupShuffle(q.questions, t.seed) : order;
-  S.take = { ...t, quiz: q }; store.set(takeKey(q.id), t); S.view = 'take'; render(); startTimer();
+  if (q.openAt && q.openAt > now()) return toast('يبدأ الاختبار ' + fmtDT(q.openAt));
+  const saved = store.get(takeKey(q.id), null); const notes = integrityNotes(q);
+  if (!saved) { if (!await ask(`بدء «${q.title}»؟`, `${integ(q).drawCount || q.questions.filter(x => x.type !== 'passage').length} سؤال${q.duration ? ` ومدة ${q.duration} دقيقة تبدأ الآن ولا تتوقف` : ''}. لديك محاولة واحدة.${notes.length ? `<ul style="margin:10px 0 0;padding-inline-start:20px;line-height:1.9;color:var(--accent)">${notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`, 'ابدأ')) return; }
+  const t = saved && saved.order ? saved : { qid: q.id, ans: {}, start: now(), seed: Math.floor(Math.random() * 1e6), idx: 0, maxIdx: 0, qStart: now(), leaves: 0, awayMs: 0, pastes: 0, pasteSus: 0 };
+  if (!t.order) {
+    let pool = q.questions.map((_, i) => i).filter(i => q.questions[i].type !== 'passage');
+    const dc = +integ(q).drawCount || 0;
+    if (dc && dc < pool.length) { const pick = shuffle(pool, hashStr(S.user.uid + q.id)).slice(0, dc); pool = pool.filter(i => pick.includes(i)); t.drawn = pool.map(i => q.questions[i].id); }
+    t.order = q.shuffle ? groupShuffle(q.questions, t.seed).filter(i => pool.includes(i)) : pool;
+  }
+  S.take = { ...t, quiz: q }; saveTake(); S.view = 'take'; render(); startTimer(); integrityOn();
+  if (integ(q).fullscreen) try { await document.documentElement.requestFullscreen?.(); } catch { }
 };
 const passageIdx = (qs, i) => { for (let j = i - 1; j >= 0; j--) if (qs[j].type === 'passage') return j; return -1; };
 function groupShuffle(qs, seed) { const blocks = new Map(); qs.forEach((q, i) => { if (q.type === 'passage') return; const p = passageIdx(qs, i); const k = p < 0 ? 'q' + i : 'p' + p; if (!blocks.has(k)) blocks.set(k, []); blocks.get(k).push(i); }); return shuffle([...blocks.values()], seed).flatMap(b => shuffle(b, seed + b[0])); }
-const saveTake = () => { const t = S.take; store.set(takeKey(t.qid), { qid: t.qid, ans: t.ans, start: t.start, seed: t.seed, idx: t.idx, order: t.order }); };
-let tmr; function startTimer() { clearInterval(tmr); const t = S.take; if (!t?.quiz.duration && !t?.quiz.dueAt) return; tmr = setInterval(() => { if (!S.take) return clearInterval(tmr); const left = timeLeft(); const el = $('#tmr'); if (el) { el.querySelector('b').textContent = fmtLeft(left); el.classList.toggle('low', left < 60000); } if (left <= 0) { clearInterval(tmr); toast('انتهى الوقت، يتم تسليم إجاباتك'); submitTake(true); } }, 1000); }
+const saveTake = () => { const t = S.take; store.set(takeKey(t.qid), { qid: t.qid, ans: t.ans, start: t.start, seed: t.seed, idx: t.idx, order: t.order, drawn: t.drawn, maxIdx: t.maxIdx || 0, qStart: t.qStart, leaves: t.leaves || 0, awayMs: t.awayMs || 0, pastes: t.pastes || 0, pasteSus: t.pasteSus || 0 }); };
+/* ---- integrity guards ---- */
+let awaySince = 0;
+function onAway() { const t = S.take; if (!t || !integ(t.quiz).trackFocus || awaySince) return; awaySince = now(); }
+function onBack() {
+  const t = S.take; if (!t || !awaySince) return; const ms = now() - awaySince; awaySince = 0; if (ms < 800) return;
+  t.leaves = (t.leaves || 0) + 1; t.awayMs = (t.awayMs || 0) + ms; saveTake(); const g = integ(t.quiz);
+  if (g.maxLeaves && t.leaves > g.maxLeaves) { toast('تجاوزت عدد مرات الخروج المسموح، تم تسليم الاختبار'); submitTake(true); return; }
+  openModal(`<h2 style="color:var(--bad)">تم تسجيل خروجك من الاختبار</h2><p style="margin-top:10px">خرجت من صفحة الاختبار ${Math.round(ms / 1000)} ثانية، وسيظهر ذلك لمعلمك.${g.maxLeaves ? ` (المرة ${t.leaves} من ${g.maxLeaves} المسموحة)` : ''}</p><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" data-a="close">متابعة الاختبار</button></div>`);
+}
+const visH = () => document.hidden ? onAway() : onBack();
+const fsH = () => { if (S.take && integ(S.take.quiz).fullscreen && !document.fullscreenElement) { onAway(); setTimeout(onBack, 900); } };
+const blockEv = e => { if (!S.take || !integ(S.take.quiz).noCopy) return; if (e.target.closest?.('#ov-root')) return; e.preventDefault(); if (e.type === 'paste') { S.take.pastes = (S.take.pastes || 0) + 1; saveTake(); toast('اللصق غير مسموح في هذا الاختبار'); } };
+function integrityOn() { const g = integ(S.take.quiz); integrityOff(); if (g.trackFocus) { document.addEventListener('visibilitychange', visH); window.addEventListener('blur', onAway); window.addEventListener('focus', onBack); document.addEventListener('fullscreenchange', fsH); } ['copy', 'cut', 'paste', 'contextmenu'].forEach(ev => document.addEventListener(ev, blockEv)); }
+function integrityOff() { document.removeEventListener('visibilitychange', visH); window.removeEventListener('blur', onAway); window.removeEventListener('focus', onBack); document.removeEventListener('fullscreenchange', fsH); ['copy', 'cut', 'paste', 'contextmenu'].forEach(ev => document.removeEventListener(ev, blockEv)); awaySince = 0; }
+let tmr; function startTimer() { clearInterval(tmr); const t = S.take; const qt = +integ(t.quiz).qTime || 0; if (!t.quiz.duration && !t.quiz.dueAt && !qt) return;
+  tmr = setInterval(() => { const t = S.take; if (!t) return clearInterval(tmr); const left = timeLeft(); const el = $('#tmr'); if (el && isFinite(left)) { el.querySelector('b').textContent = fmtLeft(left); el.classList.toggle('low', left < 60000); }
+    if (left <= 0) { clearInterval(tmr); toast('انتهى الوقت، يتم تسليم إجاباتك'); submitTake(true); return; }
+    if (qt) { const ql = qt * 1000 - (now() - (t.qStart || now())); const qe = $('#qtmr'); if (qe) { qe.querySelector('b').textContent = Math.max(0, Math.ceil(ql / 1000)); qe.classList.toggle('low', ql < 10000); qe.querySelector('i').style.width = Math.max(0, ql / (qt * 10)) + '%'; }
+      if (ql <= 0 && !$('#ov-root').innerHTML) { if (t.idx < t.order.length - 1) { nextQ(); } else { clearInterval(tmr); toast('انتهى وقت السؤال الأخير، يتم التسليم'); submitTake(true); } } } }, 500); }
+function nextQ() { const t = S.take; t.idx = Math.min(t.order.length - 1, t.idx + 1); t.maxIdx = Math.max(t.maxIdx || 0, t.idx); t.qStart = now(); saveTake(); tRender(); scrollTo(0, 0); }
 const timeLeft = () => { const t = S.take; const ends = [t.quiz.duration ? t.start + t.quiz.duration * 6e4 : Infinity, t.quiz.dueAt || Infinity]; return Math.min(...ends) - now(); };
 const fmtLeft = ms => { if (!isFinite(ms)) return ''; ms = Math.max(0, ms); const s = Math.floor(ms / 1000); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' : '') + String(m).padStart(2, '0') + ':' + String(x).padStart(2, '0'); };
 const answered = (q, a) => q.type === 'passage' || (a != null && a !== '' && !(Array.isArray(a) && !a.length) && !(typeof a === 'object' && !Array.isArray(a) && !Object.values(a).some(v => String(v ?? '').trim())));
 function viewTake() {
   const t = S.take, q = t.quiz, ord = t.order, cur = q.questions[ord[t.idx]], left = timeLeft();
   const pi = passageIdx(q.questions, ord[t.idx]); const prev = pi >= 0 ? `<details open style="margin-bottom:16px"><summary class="small muted" style="cursor:pointer">النص القرائي</summary><div class="passage" style="margin-top:8px">${esc(q.questions[pi].text)}</div></details>` : '';
-  const qnums = ord.map(i => q.questions[i]);
-  return `<div class="row sp" style="margin-bottom:6px"><div><b class="disp" style="font-size:20px">${esc(q.title)}</b><div class="small muted">${esc(S.me.name)}</div></div><div class="row">${isFinite(left) ? `<span class="timer ${left < 60000 ? 'low' : ''}" id="tmr">${ico('clock', 'style="width:18px"')}<b>${fmtLeft(left)}</b></span>` : ''}<button class="btn ghost sm" data-a="takeExit">حفظ والخروج</button></div></div>
-  <div class="prog" aria-label="الأسئلة">${qnums.map((x, n) => `<button class="${n === t.idx ? 'cur' : answered(x, t.ans[x.id]) ? 'done' : ''}" data-a="tJump" data-n="${n}" aria-label="سؤال ${n + 1}">${n + 1}</button>`).join('')}</div>
+  const qnums = ord.map(i => q.questions[i]); const g = integ(q), qt = +g.qTime || 0;
+  return `<div class="${g.noCopy ? 'nocopy' : ''}"><div class="row sp" style="margin-bottom:6px"><div><b class="disp" style="font-size:20px">${esc(q.title)}</b><div class="small muted">${esc(S.me.name)}</div></div><div class="row">${isFinite(left) ? `<span class="timer ${left < 60000 ? 'low' : ''}" id="tmr">${ico('clock', 'style="width:18px"')}<b>${fmtLeft(left)}</b></span>` : ''}<button class="btn ghost sm" data-a="takeExit">حفظ والخروج</button></div></div>
+  ${g.noBack ? `<p class="small muted" style="margin:12px 0">السؤال ${t.idx + 1} من ${qnums.length}</p>` : `<div class="prog" aria-label="الأسئلة">${qnums.map((x, n) => `<button class="${n === t.idx ? 'cur' : answered(x, t.ans[x.id]) ? 'done' : ''}" data-a="tJump" data-n="${n}" aria-label="سؤال ${n + 1}">${n + 1}</button>`).join('')}</div>`}
+  ${qt ? `<div class="qtimer" id="qtmr"><span>وقت السؤال</span><b>${Math.max(0, Math.ceil((qt * 1000 - (now() - (t.qStart || now()))) / 1000))}</b><span class="bar grow"><i style="width:100%"></i></span></div>` : ''}
   <div class="bar" style="margin-bottom:18px"><i style="width:${pct(qnums.filter(x => answered(x, t.ans[x.id])).length, qnums.length)}%"></i></div>
   <section class="card" style="padding:clamp(18px,3vw,30px)">${prev}${renderQ(cur, t.ans[cur.id], t.idx, false, t.seed)}</section>
-  <div class="row sp" style="margin-top:16px"><button class="btn ghost" data-a="tNav" data-d="-1" ${t.idx === 0 ? 'disabled' : ''}>${ico('back')} السابق</button>${t.idx < ord.length - 1 ? `<button class="btn" data-a="tNav" data-d="1">التالي ${ico('back', 'style="transform:scaleX(-1)"')}</button>` : `<button class="btn acc" data-a="tSubmit">${ico('send')} تسليم الإجابات</button>`}</div>
-  ${t.idx < ord.length - 1 ? `<div class="center" style="margin-top:22px"><button class="btn ghost sm" data-a="tSubmit">تسليم الآن</button></div>` : ''}`;
+  <div class="row sp" style="margin-top:16px">${g.noBack ? '<span></span>' : `<button class="btn ghost" data-a="tNav" data-d="-1" ${t.idx === 0 ? 'disabled' : ''}>${ico('back')} السابق</button>`}${t.idx < ord.length - 1 ? `<button class="btn" data-a="tNav" data-d="1">التالي ${ico('back', 'style="transform:scaleX(-1)"')}</button>` : `<button class="btn acc" data-a="tSubmit">${ico('send')} تسليم الإجابات</button>`}</div>
+  ${t.idx < ord.length - 1 ? `<div class="center" style="margin-top:22px"><button class="btn ghost sm" data-a="tSubmit">تسليم الآن</button></div>` : ''}</div>`;
 }
 const tRender = () => { render(); };
 A.tAns = el => { S.take.ans[el.dataset.q] = el.dataset.v; saveTake(); tRender(); };
 A.tMulti = el => { const a = new Set(S.take.ans[el.dataset.q] || []); a.has(el.dataset.v) ? a.delete(el.dataset.v) : a.add(el.dataset.v); S.take.ans[el.dataset.q] = [...a]; saveTake(); tRender(); };
 A.tMatch = el => { const a = S.take.ans[el.dataset.q] ||= {}; a[el.dataset.l] = el.value; saveTake(); };
 A.tOrd = el => { const q = S.take.quiz.questions.find(x => x.id === el.dataset.q); const a = S.take.ans[q.id]?.length ? [...S.take.ans[q.id]] : q.items.map(x => x.id); const j = +el.dataset.j, k = j + +el.dataset.d; [a[j], a[k]] = [a[k], a[j]]; S.take.ans[q.id] = a; saveTake(); tRender(); };
-A.tNav = el => { S.take.idx = Math.max(0, Math.min(S.take.order.length - 1, S.take.idx + +el.dataset.d)); saveTake(); tRender(); scrollTo(0, 0); };
-A.tJump = el => { S.take.idx = +el.dataset.n; saveTake(); tRender(); };
-A.takeExit = () => { saveTake(); clearInterval(tmr); S.take = null; go('dash'); toast('حُفظت إجاباتك، والوقت مستمر إن كان الاختبار محددًا بمدة'); };
+A.tNav = el => { const t = S.take, d = +el.dataset.d; if (d < 0 && integ(t.quiz).noBack) return; if (d > 0) return nextQ(); t.idx = Math.max(0, t.idx + d); t.qStart = now(); saveTake(); tRender(); scrollTo(0, 0); };
+A.tJump = el => { const t = S.take; if (integ(t.quiz).noBack) return; t.idx = +el.dataset.n; t.qStart = now(); saveTake(); tRender(); };
+A.tPhoto = el => { const f = el.files[0]; if (!f) return; resizeImg(f, 1100).then(d => { S.take.ans[el.dataset.q] = d; saveTake(); tRender(); }); };
+A.takeExit = () => { saveTake(); clearInterval(tmr); integrityOff(); S.take = null; go('dash'); toast('حُفظت إجاباتك، والوقت مستمر إن كان الاختبار محددًا بمدة'); };
 A.tSubmit = async () => { const t = S.take; const qs = t.quiz.questions.filter(x => x.type !== 'passage'); const miss = qs.filter(x => !answered(x, t.ans[x.id])).length; if (!await ask('تسليم الإجابات؟', miss ? `يوجد ${miss} سؤال بلا إجابة. لا يمكنك التعديل بعد التسليم.` : 'لا يمكنك التعديل بعد التسليم.', 'سلّم الآن')) return; submitTake(); };
-document.addEventListener('input', e => { const el = e.target.closest('[data-t]'); if (!el || !S.take) return; const id = el.dataset.t; if (el.dataset.k != null) { const a = S.take.ans[id] ||= []; a[+el.dataset.k] = el.value; } else S.take.ans[id] = el.value; const wc = $('#wc-' + id); if (wc) wc.textContent = normAr(el.value).split(' ').filter(Boolean).length + ' كلمة'; saveTake(); });
+document.addEventListener('input', e => { const el = e.target.closest('[data-t]'); if (!el || !S.take) return; if (e.inputType === 'insertFromPaste' || (e.data && e.data.length > 25)) { S.take.pasteSus = (S.take.pasteSus || 0) + 1; } const id = el.dataset.t; if (el.dataset.k != null) { const a = S.take.ans[id] ||= []; a[+el.dataset.k] = el.value; } else S.take.ans[id] = el.value; const wc = $('#wc-' + id); if (wc) wc.textContent = normAr(el.value).split(' ').filter(Boolean).length + ' كلمة'; saveTake(); });
 async function submitTake(auto) {
-  const t = S.take; if (!t || t.sending) return; t.sending = true; clearInterval(tmr); const q = t.quiz;
-  const sub = { quizId: q.id, uid: S.user.uid, name: S.me.name, classId: S.me.classId, ownerId: q.createdBy, answers: t.ans, startedAt: t.start, submittedAt: now(), timeSpent: Math.round((now() - t.start) / 1000), auto: !!auto };
+  const t = S.take; if (!t || t.sending) return; t.sending = true; clearInterval(tmr); integrityOff(); try { if (document.fullscreenElement) document.exitFullscreen(); } catch { } const q = t.quiz;
+  const sub = { quizId: q.id, uid: S.user.uid, name: S.me.name, classId: S.me.classId, ownerId: q.createdBy, answers: t.ans, startedAt: t.start, submittedAt: now(), timeSpent: Math.round((now() - t.start) / 1000), auto: !!auto, integrity: { leaves: t.leaves || 0, awayMs: t.awayMs || 0, pastes: t.pastes || 0, pasteSus: t.pasteSus || 0 } };
+  if (t.drawn) sub.drawn = t.drawn;
+  if (JSON.stringify(sub).length > 950000) { t.sending = false; toast('حجم صور الحل كبير جدًا، استبدل بعضها بصور أصغر'); return; }
   try {
     await DB.set('submissions', subId(q.id, S.user.uid), sub); store.del(takeKey(q.id));
     S.subs.push({ id: subId(q.id, S.user.uid), ...sub }); S.take = null;
-    if (q.resultsMode !== 'manual') S.keys[q.id] = await DB.get('quizKeys', q.id).catch(() => null);
+    if ((q.resultsMode || 'instant') === 'instant') S.keys[q.id] = await DB.get('quizKeys', q.id).catch(() => null);
     S.p = { id: q.id, fresh: 1 }; S.view = 'result'; render();
-  } catch (e) { t.sending = false; console.error(e); toast(e.code === 'permission-denied' ? 'انتهى وقت هذا الاختبار أو أُغلق' : 'تعذر التسليم، تحقق من الاتصال وأعد المحاولة'); render(); }
+  } catch (e) { t.sending = false; integrityOn(); console.error(e); toast(e.code === 'permission-denied' ? 'انتهى وقت هذا الاختبار أو أُغلق' : 'تعذر التسليم، تحقق من الاتصال وأعد المحاولة'); render(); }
 }
 
 /* ---------------- result ---------------- */
 VIEWS.result = () => {
   const q = quizById(S.p.id), s = mySub(S.p.id); if (!q || !s) return VIEWS.myres();
   const k = S.keys[q.id]; const head = `<div class="top"><button class="btn ghost" data-a="nav" data-v="${S.p.from || 'dash'}">${ico('back')} رجوع</button></div>`;
-  if (!k) return head + `<div class="card center" style="padding:40px 20px">${ico('check', 'style="width:70px;height:70px;color:var(--ok)"')}<h1 style="margin-top:10px">تم تسليم إجاباتك</h1><p class="muted" style="margin-top:8px">ستظهر نتيجة «${esc(q.title)}» بعد أن يعلنها المعلم</p></div>`;
+  if (!k) return head + `<div class="card center" style="padding:40px 20px">${ico('check', 'style="width:70px;height:70px;color:var(--ok)"')}<h1 style="margin-top:10px">تم تسليم إجاباتك</h1><p class="muted" style="margin-top:8px">ستظهر نتيجة «${esc(q.title)}» ${q.resultsMode === 'afterDue' && q.dueAt ? 'بعد انتهاء موعد الاختبار ' + fmtDT(q.dueAt) : 'بعد أن يعلنها المعلم'}</p></div>`;
   const ev = evalSub(q, k, s, S.reviews[s.id]); const [gl, gc] = grade5(ev.pct);
   if (S.p.fresh && ev.pct >= 80) S.after = [...(S.after || []), () => setTimeout(confetti, 500)]; S.p.fresh = 0;
   const msg = ev.pct >= 90 ? 'أداء مذهل! أنت نجم هذا الاختبار' : ev.pct >= 75 ? 'عمل رائع، استمر على هذا المستوى' : ev.pct >= 50 ? 'جيد، ومع قليل من المراجعة ستتفوق' : 'لا بأس، راجع الأخطاء وستتحسن بإذن الله';
   return head + `<div class="col" style="gap:18px"><section class="card center" style="padding:clamp(20px,4vw,40px)"><p class="muted">${esc(q.title)}</p><div class="ring" style="margin:14px auto">${ringSVG(ev.pct)}<div class="v"><b style="color:${pctColor(ev.pct)}">${ev.pct}%</b><span class="muted">${ev.total} من ${ev.max}</span></div></div><span class="chip ${gc}" style="font-size:16px;padding:6px 16px">${gl}</span><h2 style="margin-top:14px">${msg}</h2>${ev.pending ? `<div class="alert" style="margin-top:16px;justify-content:center">${ico('clock', 'style="width:20px"')} ${ev.pending} إجابة بانتظار تقييم المعلم، وقد ترتفع درجتك بعدها</div>` : ''}</section>
-  <section><h2 style="margin-bottom:12px">مراجعة إجاباتك</h2><div class="col" style="gap:10px">${ev.items.map((i, n) => { const cl = i.status === 'correct' ? 'ok' : i.status === 'wrong' ? 'bad' : 'warn'; return `<div class="rv ${cl}"><div class="row sp"><b>${n + 1}. ${esc(i.q.text)}</b><span class="chip ${cl}">${i.status === 'review' ? 'قيد التقييم' : `${i.score} / ${i.max}`}</span></div><span class="small">إجابتك: ${esc(ansText(i.q, i.ans))}</span>${q.showAnswers !== false && i.status !== 'correct' && i.status !== 'review' ? `<span class="small" style="color:var(--ok)">الإجابة الصحيحة: ${esc(keyText(i.q, k.answers?.[i.qid]))}</span>` : ''}${i.note ? `<span class="small muted">ملاحظة المعلم: ${esc(i.note)}</span>` : ''}</div>`; }).join('')}</div></section></div>`;
+  <section><h2 style="margin-bottom:12px">مراجعة إجاباتك</h2><div class="col" style="gap:10px">${ev.items.map((i, n) => { const cl = i.status === 'correct' ? 'ok' : i.status === 'wrong' ? 'bad' : 'warn'; return `<div class="rv ${cl}"><div class="row sp"><b>${n + 1}. ${esc(i.q.text)}</b><span class="chip ${cl}">${i.status === 'review' ? 'قيد التقييم' : `${i.score} / ${i.max}`}</span></div>${i.q.type === 'photo' && i.ans ? `<img src="${esc(i.ans)}" alt="صورة حلك" style="max-width:260px;border-radius:12px">` : `<span class="small">إجابتك: ${esc(ansText(i.q, i.ans))}</span>`}${q.showAnswers !== false && i.status !== 'correct' && i.status !== 'review' ? `<span class="small" style="color:var(--ok)">الإجابة الصحيحة: ${esc(keyText(i.q, k.answers?.[i.qid]))}</span>` : ''}${i.note ? `<span class="small muted">ملاحظة المعلم: ${esc(i.note)}</span>` : ''}</div>`; }).join('')}</div></section></div>`;
 };
 
 VIEWS.mycerts = () => { const c = S.msgs.filter(m => m.kind === 'cert' && m.to === S.user.uid); return `<div class="top"><div class="t"><h1>شهاداتي</h1><p class="muted">${c.length} شهادة تقدير</p></div></div>${c.length ? `<div class="grid g2">${c.map(m => `<button style="border:0;background:none;padding:0;cursor:pointer" data-a="openCert" data-id="${m.id}">${certHTML(m.cert)}</button>`).join('')}</div>` : empty('ستظهر هنا شهادات التقدير التي يرسلها لك معلمك', 'cert')}`; };
@@ -1461,13 +1552,14 @@ A.pickRep = el => el.value && go(el.dataset.v, { id: el.value, from: 'reports' }
 VIEWS.qreport = () => {
   const q = quizById(S.p.id); if (!q) return VIEWS.reports(); const k = S.keys[q.id]; const res = quizResults(q.id); const P = res.map(r => r.ev.pct); const aud = quizAudience(q); const missing = aud.filter(u => !res.some(r => r.sub.uid === u.id));
   const n = res.length, g = Math.max(1, Math.round(n * .27)); const up = res.slice(0, g), lo = res.slice(-g);
-  const items = q.questions.filter(x => x.type !== 'passage').map((x, i) => { const sc = it => it?.status === 'review' ? null : it ? it.score / (it.max || 1) : 0; const all = res.map(r => sc(r.ev.items.find(y => y.qid === x.id))).filter(v => v != null); const pU = avg(up.map(r => sc(r.ev.items.find(y => y.qid === x.id)) ?? 0)), pL = avg(lo.map(r => sc(r.ev.items.find(y => y.qid === x.id)) ?? 0)); const p = avg(all) * 100; const D = n >= 4 ? pU - pL : null; let dist = ''; if (x.type === 'mcq' && n) { const c = {}; res.forEach(r => { const a = r.sub.answers?.[x.id]; if (a) c[a] = (c[a] || 0) + 1; }); dist = x.choices.map(ch => `<span class="chip ${ch.id === k?.answers?.[x.id]?.correct ? 'ok' : ''}" title="${esc(ch.t)}">${esc(ch.t.slice(0, 18))}: ${pct(c[ch.id] || 0, n)}%</span>`).join(' '); } const flag = !n ? '' : p >= 90 ? '<span class="chip">سهل جدًا</span>' : p < 30 ? '<span class="chip bad">صعب جدًا</span>' : D != null && D < .15 ? '<span class="chip warn">تمييز ضعيف</span>' : '<span class="chip ok">جيد</span>'; return { x, i, p, D, dist, flag }; });
+  const items = q.questions.filter(x => x.type !== 'passage').map((x, i) => { const sc = it => !it || it.status === 'review' ? null : it.score / (it.max || 1); const all = res.map(r => sc(r.ev.items.find(y => y.qid === x.id))).filter(v => v != null); const pU = avg(up.map(r => sc(r.ev.items.find(y => y.qid === x.id))).filter(v => v != null)), pL = avg(lo.map(r => sc(r.ev.items.find(y => y.qid === x.id))).filter(v => v != null)); const p = avg(all) * 100; const D = n >= 4 ? pU - pL : null; let dist = ''; if (x.type === 'mcq' && n) { const c = {}; res.forEach(r => { const a = r.sub.answers?.[x.id]; if (a) c[a] = (c[a] || 0) + 1; }); dist = x.choices.map(ch => `<span class="chip ${ch.id === k?.answers?.[x.id]?.correct ? 'ok' : ''}" title="${esc(ch.t)}">${esc(ch.t.slice(0, 18))}: ${pct(c[ch.id] || 0, n)}%</span>`).join(' '); } const flag = !n ? '' : p >= 90 ? '<span class="chip">سهل جدًا</span>' : p < 30 ? '<span class="chip bad">صعب جدًا</span>' : D != null && D < .15 ? '<span class="chip warn">تمييز ضعيف</span>' : '<span class="chip ok">جيد</span>'; return { x, i, p, D, dist, flag }; });
   return `<div class="top noprint">${backBtn()}<div class="row">${prBtn}<button class="btn ghost" data-a="exportQuiz" data-id="${q.id}">${ico('dl')} Excel</button>${isAdmin() ? `<button class="btn gold" data-a="certTo" data-ids="${res.filter(r => r.ev.pct >= 90).map(r => r.sub.uid).join(',')}" data-quiz="${q.id}">${ico('cert')} شهادات للمتفوقين</button>` : ''}</div></div>${printHead('تقرير اختبار: ' + q.title)}
   <div class="col" style="gap:18px"><div><h1>${esc(q.title)}</h1><p class="muted">${(q.classIds || []).map(clsName).join('، ')} · ${q.totalPoints} درجة · ${fmtDate(q.publishedAt || q.createdAt)}</p></div>
   <div class="grid g4">${stat(`${n}/${aud.length}`, 'المشاركة')}${stat(r1(avg(P)) + '%', 'المتوسط', 'var(--brand)')}${stat(r1(median(P)) + '%', 'الوسيط', 'var(--accent)')}${stat(pct(P.filter(p => p >= 50).length, n) + '%', 'نسبة النجاح', 'var(--ok)')}${stat((n ? Math.max(...P) : 0) + '%', 'أعلى درجة', 'var(--gold)')}${stat((n ? Math.min(...P) : 0) + '%', 'أقل درجة', 'var(--bad)')}${stat(r1(stdev(P)), 'الانحراف المعياري', 'var(--muted)')}${stat(n ? fmtLeft(avg(res.map(r => (r.sub.timeSpent || 0) * 1000))) : '-', 'متوسط وقت الحل', 'var(--brand)')}</div>
   <div class="card"><h3>توزيع الدرجات</h3>${n ? histSVG(P) : '<p class="muted">لا توجد تسليمات</p>'}</div>
   <div class="card"><h3>تحليل الأسئلة</h3><p class="small muted" style="margin-bottom:10px">نسبة الإجابة الصحيحة، ومعامل التمييز بين أعلى 27% وأدنى 27% من الطلاب. سؤال بتمييز ضعيف يستحق المراجعة</p><div class="scroll"><table><thead><tr><th>#</th><th>السؤال</th><th>النوع</th><th style="min-width:140px">نسبة الصحة</th><th class="num">التمييز</th><th>الحكم</th></tr></thead><tbody>${items.map(r => `<tr><td>${r.i + 1}</td><td>${esc(r.x.text.slice(0, 90))}${r.dist ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${r.dist}</div>` : ''}</td><td class="small">${QT[r.x.type].n}</td><td><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="bar grow"><i style="width:${r.p}%;background:${pctColor(r.p)}"></i></div><b class="small">${Math.round(r.p)}%</b></div></td><td class="num">${r.D == null ? '-' : r.D.toFixed(2)}</td><td>${r.flag}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="card"><h3>ترتيب الطلاب</h3>${n ? `<table class="stack"><thead><tr><th>#</th><th>الطالب</th><th>الفصل</th><th class="num">الدرجة</th><th>التقدير</th><th></th></tr></thead><tbody>${res.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.user.name)}</b></td><td>${esc(clsName(r.sub.classId))}</td><td class="num">${r.ev.total}/${r.ev.max} (${r.ev.pct}%)</td><td><span class="chip ${grade5(r.ev.pct)[1]}">${grade5(r.ev.pct)[0]}</span>${r.ev.pending ? ' <span class="chip warn">مراجعة</span>' : ''}</td><td class="noprint"><button class="btn sm ghost" data-a="subDetail" data-id="${r.sub.id}">التفاصيل</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">—</p>'}</div>
+  ${integrityCard(q, res)}
   ${missing.length ? `<div class="card"><div class="row sp"><h3 style="margin:0">لم يسلّموا (${missing.length})</h3><button class="btn sm soft noprint" data-a="remind" data-id="${q.id}">${ico('send')} تذكيرهم</button></div><div class="row" style="margin-top:10px;gap:6px">${missing.map(u => `<span class="chip">${esc(u.name)}</span>`).join('')}</div></div>` : ''}</div>`;
 };
 A.remind = el => { const q = quizById(el.dataset.id); const res = quizResults(q.id); const miss = quizAudience(q).filter(u => !res.some(r => r.sub.uid === u.id)); safe(async () => { for (const u of miss) await DB.add('messages', { from: S.user.uid, fromName: S.me.name, to: u.id, toName: u.name, kind: 'msg', subject: 'تذكير باختبار', body: `لم تسلّم اختبار «${q.title}» بعد${q.dueAt ? `، وآخر موعد ${fmtDT(q.dueAt)}` : ''}. بالتوفيق!`, createdAt: now(), readBy: [] }); }, `أُرسل التذكير إلى ${miss.length}`); };
@@ -1528,6 +1620,28 @@ VIEWS.compare = () => {
   const qs = S.quizzes.filter(q => ['published', 'closed'].includes(q.status));
   return `<div class="top noprint">${backBtn()}${prBtn}</div>${printHead('مقارنة الفصول')}<h1 style="margin-bottom:16px">مقارنة الفصول</h1>${qs.length ? `<div class="grid g2">${qs.map(q => `<div class="card"><h3>${esc(q.title)}</h3>${hbars(q.classIds.map(c => { const r = quizResults(q.id).filter(x => x.sub.classId === c); return { l: clsName(c), v: avg(r.map(x => x.ev.pct)), c: colorOf(c) }; }))}</div>`).join('')}</div>` : empty('لا توجد بيانات')}`;
 };
+
+/* ---------- integrity report: leaving the page, pasting, and similar answers ---------- */
+function similarPairs(q, res) {
+  const out = [], txt = q.questions.filter(x => ['essay', 'short'].includes(x.type)), obj = q.questions.filter(x => ['mcq', 'tf', 'multi'].includes(x.type));
+  for (let i = 0; i < res.length; i++) for (let j = i + 1; j < res.length; j++) {
+    const A = res[i], B = res[j], why = [];
+    for (const x of txt) { const a = String(A.sub.answers?.[x.id] || ''), b = String(B.sub.answers?.[x.id] || ''); if (normAr(a).length < 20 || normAr(b).length < 20) continue; const s = Math.max(tokenF1(a, b), levR(normAr(a), normAr(b))); if (s >= .85) why.push(`إجابة متطابقة تقريبًا (${Math.round(s * 100)}%) في: ${x.text.slice(0, 40)}`); }
+    let same = 0, wa = 0, wb = 0;
+    for (const x of obj) { const ia = A.ev.items.find(y => y.qid === x.id), ib = B.ev.items.find(y => y.qid === x.id); if (!ia || !ib) continue; const ea = ia.status !== 'correct', eb = ib.status !== 'correct'; if (ea) wa++; if (eb) wb++; if (ea && eb && JSON.stringify(ia.ans) === JSON.stringify(ib.ans) && ia.ans != null) same++; }
+    if (same >= 3 && same / Math.max(1, Math.max(wa, wb)) >= .6) why.push(`نفس الإجابات الخاطئة في ${same} أسئلة`);
+    if (why.length) out.push({ A, B, why });
+  }
+  return out;
+}
+function integrityCard(q, res) {
+  const g = q.integrity || {}; const sus = res.filter(r => r.sub.integrity && (r.sub.integrity.leaves || r.sub.integrity.pastes || r.sub.integrity.pasteSus || r.sub.auto));
+  const pairs = g.similarity === false || res.length < 2 ? [] : similarPairs(q, res);
+  if (!sus.length && !pairs.length) return res.length && (g.trackFocus || g.noCopy || g.similarity) ? `<div class="card"><h3>${ico('shield', 'style="width:20px;vertical-align:middle"')} تقرير النزاهة</h3><p class="small" style="color:var(--ok)">لم يُرصد خروج من الاختبار ولا لصق ولا تشابه لافت.</p></div>` : '';
+  return `<div class="card"><h3>${ico('shield', 'style="width:20px;vertical-align:middle"')} تقرير النزاهة</h3><p class="small muted" style="margin-bottom:10px">مؤشرات تستحق الانتباه وليست دليل غش بالضرورة. راجعها، ويمكنك سؤال الطالب شفهيًا.</p>
+  ${pairs.length ? `<h3 style="font-size:16px">تشابه بين الطلاب (${pairs.length})</h3><div class="list" style="margin-bottom:14px">${pairs.map(p => `<div class="item"><div class="grow"><b>${esc(p.A.user.name)} و ${esc(p.B.user.name)}</b><div class="small muted">${p.why.map(esc).join(' · ')}</div></div><button class="btn sm ghost noprint" data-a="subDetail" data-id="${p.A.sub.id}">${esc(p.A.user.name.split(' ')[0])}</button><button class="btn sm ghost noprint" data-a="subDetail" data-id="${p.B.sub.id}">${esc(p.B.user.name.split(' ')[0])}</button></div>`).join('')}</div>` : ''}
+  ${sus.length ? `<table class="stack"><thead><tr><th>الطالب</th><th class="num">مرات الخروج</th><th class="num">مدة الخروج</th><th class="num">محاولات لصق</th><th class="num">نص دفعة واحدة</th><th>تسليم تلقائي</th></tr></thead><tbody>${sus.sort((a, b) => (b.sub.integrity?.leaves || 0) - (a.sub.integrity?.leaves || 0)).map(r => { const s = r.sub.integrity || {}; return `<tr><td><b>${esc(r.user.name)}</b></td><td class="num">${s.leaves || 0}</td><td class="num">${fmtLeft((s.awayMs || 0))}</td><td class="num">${s.pastes || 0}</td><td class="num">${s.pasteSus || 0}</td><td>${r.sub.auto ? '<span class="chip warn">نعم</span>' : ''}</td></tr>`; }).join('')}</tbody></table>` : ''}</div>`;
+}
 
 /* ---------------- adding students by the teacher (paste / Excel / image) ---------------- */
 const HEAD_RE = /^(م|#|ت|الرقم|رقم|الاسم|اسم الطالب|اسم الطالبة|الطالب|الطالبة|name|no|id|الفصل|الصف)$/i;

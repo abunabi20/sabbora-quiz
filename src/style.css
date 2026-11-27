@@ -273,3 +273,12 @@ td.num,th.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowra
 .meter{display:flex;align-items:flex-end;gap:4px;height:56px}.meter i{width:7px;height:6px;border-radius:4px;background:var(--brand);transition:height .1s}
 .spinner{width:54px;height:54px;border-radius:50%;border:5px solid var(--brandSoft);border-top-color:var(--brand);margin:0 auto;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+.nocopy,.nocopy *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.nocopy input,.nocopy textarea{-webkit-user-select:text;user-select:text}
+.qtimer{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:var(--brandSoft);color:var(--brand);font-weight:600;margin-bottom:14px}
+.qtimer b{font-variant-numeric:tabular-nums;font-size:18px;min-width:28px;text-align:center}
+.qtimer.low{background:var(--badSoft);color:var(--bad)}.qtimer.low .bar i{background:var(--bad)}
+.qtimer .bar i{transition:width .5s linear}
+.qtimg{max-width:100%;height:auto;display:block;pointer-events:none}
+.opt .qtimg{display:inline-block}

@@ -228,7 +228,7 @@ async function loadStudent() {
   S.quizzes = qz.sort((a, b) => (b.publishedAt || b.createdAt || 0) - (a.publishedAt || a.createdAt || 0)); S.subs = subs;
   const revs = await Promise.all(subs.map(s => DB.get('reviews', s.id).catch(() => null)));
   S.reviews = Object.fromEntries(subs.map((s, i) => [s.id, revs[i]]).filter(x => x[1]));
-  const ks = await Promise.all(subs.map(s => { const q = quizById(s.quizId); return q && (q.resultsMode !== 'manual' || q.released) ? DB.get('quizKeys', s.quizId).catch(() => null) : null; }));
+  const ks = await Promise.all(subs.map(s => { const q = quizById(s.quizId); return q && (q.resultsMode === 'instant' || !q.resultsMode || q.released || (q.resultsMode === 'afterDue' && q.dueAt && q.dueAt < now())) ? DB.get('quizKeys', s.quizId).catch(() => null) : null; }));
   S.keys = Object.fromEntries(subs.map((s, i) => [s.quizId, ks[i]]));
 }
 function startWatch() {
